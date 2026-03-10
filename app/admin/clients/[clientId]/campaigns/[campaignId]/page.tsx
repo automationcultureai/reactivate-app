@@ -7,9 +7,10 @@ import { GenerateButton } from '@/components/admin/GenerateButton'
 import { FailedSendsList } from '@/components/admin/FailedSendsList'
 import { CampaignBookings } from '@/components/admin/CampaignBookings'
 import { PauseResumeButton } from '@/components/admin/PauseResumeButton'
+import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLeadList'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap } from 'lucide-react'
-import type { Booking } from '@/lib/supabase'
+import type { Booking, Lead, LeadEvent } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -82,6 +83,34 @@ export default async function CampaignDetailPage({ params }: Props) {
     ...(b as unknown as Booking),
     leadName: (b.leads as unknown as { name: string } | null)?.name ?? 'Unknown',
   }))
+
+  // Fetch all leads with their event logs (for audit log + GDPR erasure section)
+  const { data: allLeads } = await supabase
+    .from('leads')
+    .select('*')
+    .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: true })
+
+  let leadsWithEvents: LeadWithEvents[] = []
+  if (allLeads && allLeads.length > 0) {
+    const ids = allLeads.map((l) => l.id)
+    const { data: events } = await supabase
+      .from('lead_events')
+      .select('*')
+      .in('lead_id', ids)
+      .order('created_at', { ascending: false })
+
+    const eventsByLead = new Map<string, LeadEvent[]>()
+    for (const e of events ?? []) {
+      if (!eventsByLead.has(e.lead_id)) eventsByLead.set(e.lead_id, [])
+      eventsByLead.get(e.lead_id)!.push(e as LeadEvent)
+    }
+
+    leadsWithEvents = (allLeads as Lead[]).map((l) => ({
+      ...l,
+      events: eventsByLead.get(l.id) ?? [],
+    }))
+  }
 
   return (
     <div className="space-y-8">
@@ -188,6 +217,24 @@ export default async function CampaignDetailPage({ params }: Props) {
               Bookings ({bookings.length})
             </h3>
             <CampaignBookings bookings={bookings} />
+          </div>
+        </>
+      )}
+
+      {/* Leads with event log + GDPR erasure */}
+      {leadsWithEvents.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">
+                Leads ({leadsWithEvents.length})
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Click any row to expand the full audit log. Use the trash icon to erase personal data (GDPR right to erasure).
+              </p>
+            </div>
+            <CampaignLeadList leads={leadsWithEvents} />
           </div>
         </>
       )}
