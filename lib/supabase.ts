@@ -150,6 +150,7 @@ export type Booking = {
   completed_at: string | null
   completed_by: 'client' | 'admin' | 'auto' | null
   commission_owed: number
+  reminder_sent_at: string | null
   created_at: string
 }
 

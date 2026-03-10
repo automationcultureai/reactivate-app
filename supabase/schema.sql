@@ -132,10 +132,11 @@ CREATE TABLE IF NOT EXISTS bookings (
   google_event_id  TEXT,
   status           TEXT NOT NULL DEFAULT 'booked'
                      CHECK (status IN ('booked', 'completed', 'cancelled', 'disputed')),
-  completed_at     TIMESTAMPTZ,
-  completed_by     TEXT CHECK (completed_by IN ('client', 'admin', 'auto')),
-  commission_owed  INTEGER NOT NULL DEFAULT 0,  -- in cents
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  completed_at      TIMESTAMPTZ,
+  completed_by      TEXT CHECK (completed_by IN ('client', 'admin', 'auto')),
+  commission_owed   INTEGER NOT NULL DEFAULT 0,  -- in cents
+  reminder_sent_at  TIMESTAMPTZ,                 -- set when pre-appointment reminder is sent
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_bookings_lead_id          ON bookings(lead_id);
