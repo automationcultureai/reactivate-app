@@ -5,8 +5,10 @@ import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/lib/button-variants'
 import { GenerateButton } from '@/components/admin/GenerateButton'
 import { FailedSendsList } from '@/components/admin/FailedSendsList'
+import { CampaignBookings } from '@/components/admin/CampaignBookings'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap } from 'lucide-react'
+import type { Booking } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -57,6 +59,27 @@ export default async function CampaignDetailPage({ params }: Props) {
   const failures = (rawFailures ?? []).map((f) => ({
     ...f,
     leadName: (f.leads as { name: string } | null)?.name ?? 'Unknown lead',
+  }))
+
+  // Fetch bookings for leads in this campaign (for admin override section)
+  const { data: leadIds } = await supabase
+    .from('leads')
+    .select('id')
+    .eq('campaign_id', campaignId)
+
+  const allLeadIds = (leadIds ?? []).map((l) => l.id)
+  const rawBookings = allLeadIds.length > 0
+    ? (await supabase
+        .from('bookings')
+        .select('*, leads(name)')
+        .in('lead_id', allLeadIds)
+        .order('scheduled_at', { ascending: false })
+      ).data ?? []
+    : []
+
+  const bookings = rawBookings.map((b) => ({
+    ...(b as unknown as Booking),
+    leadName: (b.leads as unknown as { name: string } | null)?.name ?? 'Unknown',
   }))
 
   return (
@@ -146,6 +169,19 @@ export default async function CampaignDetailPage({ params }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Bookings section — with admin override complete button */}
+      {bookings.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-foreground">
+              Bookings ({bookings.length})
+            </h3>
+            <CampaignBookings bookings={bookings} />
+          </div>
+        </>
+      )}
 
       {/* Failed sends section — only shown when failures exist */}
       {failures.length > 0 && (
