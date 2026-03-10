@@ -65,12 +65,15 @@ export default async function BookingPage({ params }: Props) {
   let slots: TimeSlot[] = []
   let calendarError = false
 
+  let calendarErrorMessage = ''
   if (clientData?.google_calendar_id) {
     try {
       slots = await getAvailableSlots(clientData.google_calendar_id)
     } catch (err) {
-      console.error('[book/page] Failed to fetch calendar slots:', err)
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('[book/page] Failed to fetch calendar slots:', message)
       calendarError = true
+      calendarErrorMessage = message
     }
   }
 
@@ -91,11 +94,18 @@ export default async function BookingPage({ params }: Props) {
         {calendarError && (
           <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-500/20 bg-amber-500/5">
             <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-muted-foreground">
-              Calendar is temporarily unavailable. Please contact{' '}
-              <span className="font-medium text-foreground">{clientDisplayName}</span> directly to book
-              your appointment.
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Calendar is temporarily unavailable. Please contact{' '}
+                <span className="font-medium text-foreground">{clientDisplayName}</span> directly to book
+                your appointment.
+              </p>
+              {calendarErrorMessage && (
+                <p className="text-xs font-mono text-amber-700 dark:text-amber-400 break-all">
+                  {calendarErrorMessage}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
