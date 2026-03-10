@@ -14,6 +14,9 @@ const isPublicRoute = createRouteMatcher([
   '/api/unsubscribe/(.*)',
   '/api/leads/(.*)/book',
   '/api/webhooks/twilio',
+  // Cron routes — protected by CRON_SECRET header, not Clerk auth
+  '/api/cron/(.*)',
+  '/api/jobs/auto-complete',
 ])
 
 // Routes that require admin access (userId must be in ADMIN_USER_IDS)
