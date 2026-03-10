@@ -8,6 +8,7 @@ import { FailedSendsList } from '@/components/admin/FailedSendsList'
 import { CampaignBookings } from '@/components/admin/CampaignBookings'
 import { PauseResumeButton } from '@/components/admin/PauseResumeButton'
 import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLeadList'
+import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap } from 'lucide-react'
 import type { Booking, Lead, LeadEvent } from '@/lib/supabase'
@@ -112,6 +113,27 @@ export default async function CampaignDetailPage({ params }: Props) {
     }))
   }
 
+  // Compute analytics from allLeads + email open counts
+  const emailedStatuses = ['emailed', 'sms_sent', 'clicked', 'booked', 'completed']
+  const emailedLeads = (allLeads ?? []).filter((l) => emailedStatuses.includes(l.status)).length
+  const clickedLeads = (allLeads ?? []).filter((l) =>
+    ['clicked', 'booked', 'completed'].includes(l.status)
+  ).length
+  const bookedLeads = (allLeads ?? []).filter((l) =>
+    ['booked', 'completed'].includes(l.status)
+  ).length
+  const completedLeads = (allLeads ?? []).filter((l) => l.status === 'completed').length
+
+  let emailsOpenedCount = 0
+  if (allLeadIds.length > 0) {
+    const { count } = await supabase
+      .from('emails')
+      .select('id', { count: 'exact', head: true })
+      .in('lead_id', allLeadIds)
+      .not('opened_at', 'is', null)
+    emailsOpenedCount = count ?? 0
+  }
+
   return (
     <div className="space-y-8">
       {/* Breadcrumb */}
@@ -207,6 +229,24 @@ export default async function CampaignDetailPage({ params }: Props) {
           </div>
         ))}
       </div>
+
+      {/* Analytics — shown once campaign has sent email 1 to at least one lead */}
+      {emailedLeads > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-foreground">Performance</h3>
+            <CampaignAnalytics
+              emailsSent={emailedLeads}
+              emailsOpened={emailsOpenedCount}
+              leadCount={leads}
+              clickedCount={clickedLeads}
+              bookedCount={bookedLeads}
+              completedCount={completedLeads}
+            />
+          </div>
+        </>
+      )}
 
       {/* Bookings section — with admin override complete button */}
       {bookings.length > 0 && (
