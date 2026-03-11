@@ -22,11 +22,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import Link from 'next/link'
 import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react'
 
 interface DisputeRow {
   id: string
   booking_id: string
+  client_id: string
   reason: string
   created_at: string
   clientName: string
@@ -107,7 +109,11 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
           <TableBody>
             {disputes.map((dispute) => (
               <TableRow key={dispute.id} className="hover:bg-muted/10">
-                <TableCell className="font-medium text-foreground">{dispute.clientName}</TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`/admin/clients/${dispute.client_id}`} className="text-foreground hover:text-primary transition-colors">
+                    {dispute.clientName}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{dispute.leadName}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {format(parseISO(dispute.scheduledAt), 'dd MMM yyyy')}

@@ -50,9 +50,11 @@ export function ClientTable({ clients }: ClientTableProps) {
         </TableHeader>
         <TableBody>
           {clients.map((client) => (
-            <TableRow key={client.id} className="hover:bg-muted/20 transition-colors">
-              <TableCell className="font-medium text-foreground">
-                {client.name}
+            <TableRow key={client.id} className="hover:bg-muted/20 transition-colors group">
+              <TableCell className="font-medium">
+                <Link href={`/admin/clients/${client.id}`} className="block text-foreground group-hover:text-primary transition-colors">
+                  {client.business_name || client.name}
+                </Link>
               </TableCell>
               <TableCell className="text-muted-foreground">{client.email}</TableCell>
               <TableCell>
@@ -72,10 +74,10 @@ export function ClientTable({ clients }: ClientTableProps) {
               <TableCell className="text-muted-foreground text-sm">
                 {formatDistanceToNow(new Date(client.created_at), { addSuffix: true })}
               </TableCell>
-              <TableCell>
+              <TableCell className="pr-2">
                 <Link
                   href={`/admin/clients/${client.id}`}
-                  className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                  className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-full flex items-center justify-center gap-1 text-muted-foreground')}
                 >
                   <ArrowRight className="w-4 h-4" />
                 </Link>

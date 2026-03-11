@@ -9,6 +9,7 @@ export default async function DisputesPage() {
     .select(`
       id,
       booking_id,
+      client_id,
       reason,
       created_at,
       clients(name, business_name),
@@ -36,6 +37,7 @@ export default async function DisputesPage() {
     return {
       id: d.id,
       booking_id: d.booking_id,
+      client_id: d.client_id,
       reason: d.reason,
       created_at: d.created_at,
       clientName: client?.business_name || client?.name || 'Unknown client',

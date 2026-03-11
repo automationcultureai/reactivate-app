@@ -86,7 +86,7 @@ export default async function AdminHomePage() {
     { label: 'Total leads', value: String(totalLeads ?? 0), icon: BarChart3, colour: '' },
     { label: 'Active bookings', value: String(activeBookings ?? 0), icon: Calendar, colour: 'text-blue-600 dark:text-blue-400' },
     { label: 'Jobs completed', value: String(totalCompleted ?? 0), icon: CheckCircle, colour: 'text-green-600 dark:text-green-400' },
-    { label: 'Cancelled', value: String(totalCancelled ?? 0), icon: XCircle, colour: 'text-muted-foreground' },
+    { label: 'Bookings cancelled', value: String(totalCancelled ?? 0), icon: XCircle, colour: 'text-muted-foreground' },
     { label: 'Outstanding', value: `$${(totalOutstanding / 100).toFixed(2)}`, icon: DollarSign, colour: 'text-amber-600 dark:text-amber-400' },
     { label: 'Total paid', value: `$${(totalPaid / 100).toFixed(2)}`, icon: DollarSign, colour: 'text-green-600 dark:text-green-400' },
   ]
