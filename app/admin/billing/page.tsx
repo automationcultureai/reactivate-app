@@ -12,12 +12,13 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Download, AlertCircle } from 'lucide-react'
+import { MarkPaidButton } from '@/components/admin/MarkPaidButton'
+import { Download, AlertCircle, CheckCircle } from 'lucide-react'
 
 export default async function BillingPage() {
   const supabase = getSupabaseClient()
 
-  // Fetch all completed + disputed bookings with client + lead info
+  // Fetch all completed + disputed bookings — include commission_paid_at
   const { data: bookings, error } = await supabase
     .from('bookings')
     .select(`
@@ -26,6 +27,7 @@ export default async function BillingPage() {
       completed_at,
       completed_by,
       commission_owed,
+      commission_paid_at,
       status,
       client_id,
       leads(name),
@@ -34,7 +36,7 @@ export default async function BillingPage() {
     .in('status', ['completed', 'disputed'])
     .order('completed_at', { ascending: false })
 
-  // Fetch open disputes so we can distinguish "active" disputed from "resolved-upheld"
+  // Fetch open disputes
   const { data: openDisputes } = await supabase
     .from('commission_disputes')
     .select('booking_id')
@@ -52,13 +54,14 @@ export default async function BillingPage() {
     .select('id, name, client_id')
     .order('created_at', { ascending: false })
 
-  // Group by client
+  // Group by client — split into paid vs unpaid
   type BookingWithMeta = {
     id: string
     scheduled_at: string
     completed_at: string | null
     completed_by: string | null
     commission_owed: number
+    commission_paid_at: string | null
     status: string
     leadName: string
   }
@@ -67,9 +70,11 @@ export default async function BillingPage() {
     clientId: string
     clientName: string
     commissionPerJob: number
-    completed: BookingWithMeta[]
+    unpaid: BookingWithMeta[]
+    paid: BookingWithMeta[]
     disputed: BookingWithMeta[]
-    totalOwed: number
+    totalUnpaid: number
+    totalPaid: number
   }
 
   const clientMap = new Map<string, ClientGroup>()
@@ -90,9 +95,11 @@ export default async function BillingPage() {
         clientId: client.id,
         clientName: client.business_name || client.name,
         commissionPerJob: client.commission_per_job,
-        completed: [],
+        unpaid: [],
+        paid: [],
         disputed: [],
-        totalOwed: 0,
+        totalUnpaid: 0,
+        totalPaid: 0,
       })
     }
 
@@ -103,22 +110,25 @@ export default async function BillingPage() {
       completed_at: b.completed_at,
       completed_by: b.completed_by,
       commission_owed: b.commission_owed,
+      commission_paid_at: (b as unknown as { commission_paid_at: string | null }).commission_paid_at,
       status: b.status,
       leadName: lead?.name ?? 'Unknown',
     }
 
-    // Only show in disputed section if the dispute is still open
-    // Resolved/rejected disputes: upheld ones stay 'disputed' status but have no open dispute record
     if (b.status === 'disputed' && openDisputeBookingIds.has(b.id)) {
       group.disputed.push(row)
+    } else if (row.commission_paid_at) {
+      group.paid.push(row)
+      group.totalPaid += b.commission_owed ?? 0
     } else {
-      group.completed.push(row)
-      group.totalOwed += b.commission_owed ?? 0
+      group.unpaid.push(row)
+      group.totalUnpaid += b.commission_owed ?? 0
     }
   }
 
   const clientGroups = Array.from(clientMap.values())
-  const grandTotal = clientGroups.reduce((sum, g) => sum + g.totalOwed, 0)
+  const grandUnpaid = clientGroups.reduce((sum, g) => sum + g.totalUnpaid, 0)
+  const grandPaid = clientGroups.reduce((sum, g) => sum + g.totalPaid, 0)
   const totalDisputedCount = clientGroups.reduce((sum, g) => sum + g.disputed.length, 0)
 
   const campaignsByClient = new Map<string, typeof campaigns>()
@@ -133,25 +143,45 @@ export default async function BillingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Billing</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Commission tracker · Grand total:{' '}
-            <span className="font-semibold text-foreground font-mono">
-              ${(grandTotal / 100).toFixed(2)}
-            </span>
-            {totalDisputedCount > 0 && (
-              <span className="text-amber-500 ml-2">
-                · {totalDisputedCount} disputed
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-sm text-muted-foreground">
+              Outstanding:{' '}
+              <span className="font-semibold text-foreground font-mono">
+                ${(grandUnpaid / 100).toFixed(2)}
               </span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Total paid:{' '}
+              <span className="font-semibold text-green-600 dark:text-green-400 font-mono">
+                ${(grandPaid / 100).toFixed(2)}
+              </span>
+            </p>
+            {totalDisputedCount > 0 && (
+              <p className="text-sm text-amber-500">
+                {totalDisputedCount} disputed
+              </p>
             )}
-          </p>
+          </div>
         </div>
-        <a
-          href="/api/billing/export"
-          className={cn(buttonVariants({ variant: 'outline' }))}
-        >
+        <a href="/api/billing/export" className={cn(buttonVariants({ variant: 'outline' }))}>
           <Download className="w-4 h-4 mr-2" />
-          Export commission CSV
+          Export CSV
         </a>
+      </div>
+
+      {/* Platform summary */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'Outstanding', value: `$${(grandUnpaid / 100).toFixed(2)}`, sub: 'Commission not yet invoiced', colour: 'text-foreground' },
+          { label: 'Total paid', value: `$${(grandPaid / 100).toFixed(2)}`, sub: 'Commission marked as received', colour: 'text-green-600 dark:text-green-400' },
+          { label: 'Total earned', value: `$${((grandUnpaid + grandPaid) / 100).toFixed(2)}`, sub: 'All completed jobs', colour: 'text-foreground' },
+        ].map(({ label, value, sub, colour }) => (
+          <div key={label} className="p-4 rounded-lg border border-border bg-card">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            <p className={cn('text-2xl font-semibold font-mono mt-1', colour)}>{value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
+          </div>
+        ))}
       </div>
 
       {/* Per-client billing sections */}
@@ -165,15 +195,19 @@ export default async function BillingPage() {
           return (
             <div key={group.clientId} className="space-y-3">
               {/* Client header */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">{group.clientName}</h2>
                   <p className="text-xs text-muted-foreground">
-                    {group.completed.length} completed ·{' '}
                     ${(group.commissionPerJob / 100).toFixed(2)}/job ·{' '}
                     <span className="font-semibold text-foreground font-mono">
-                      ${(group.totalOwed / 100).toFixed(2)} owed
+                      ${(group.totalUnpaid / 100).toFixed(2)} outstanding
                     </span>
+                    {group.totalPaid > 0 && (
+                      <span className="text-green-600 dark:text-green-400 ml-2">
+                        · ${(group.totalPaid / 100).toFixed(2)} paid
+                      </span>
+                    )}
                     {group.disputed.length > 0 && (
                       <span className="text-amber-500 ml-2">
                         · {group.disputed.length} disputed
@@ -181,8 +215,9 @@ export default async function BillingPage() {
                     )}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {clientCampaigns.slice(0, 3).map((c) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <MarkPaidButton clientId={group.clientId} unpaidAmount={group.totalUnpaid} />
+                  {clientCampaigns.slice(0, 2).map((c) => (
                     <a
                       key={c.id}
                       href={`/api/billing/send-log/${c.id}`}
@@ -195,12 +230,15 @@ export default async function BillingPage() {
                 </div>
               </div>
 
-              {/* Completed bookings table */}
-              {group.completed.length > 0 && (
+              {/* Outstanding bookings */}
+              {group.unpaid.length > 0 && (
                 <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/20 border-b border-border">
+                    <p className="text-xs font-medium text-muted-foreground">Outstanding — ${(group.totalUnpaid / 100).toFixed(2)}</p>
+                  </div>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30">
+                      <TableRow className="bg-muted/10">
                         <TableHead className="font-medium">Lead</TableHead>
                         <TableHead className="font-medium">Appointment</TableHead>
                         <TableHead className="font-medium">Completed</TableHead>
@@ -209,33 +247,34 @@ export default async function BillingPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {group.completed.map((b) => (
+                      {group.unpaid.map((b) => (
                         <TableRow key={b.id} className="hover:bg-muted/10">
                           <TableCell className="text-foreground">{b.leadName}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {b.scheduled_at
-                              ? new Date(b.scheduled_at).toLocaleDateString('en-GB', {
-                                  day: 'numeric', month: 'short', year: 'numeric',
-                                })
-                              : '—'}
+                            {b.scheduled_at ? new Date(b.scheduled_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {b.completed_at
-                              ? new Date(b.completed_at).toLocaleDateString('en-GB', {
-                                  day: 'numeric', month: 'short', year: 'numeric',
-                                })
-                              : '—'}
+                            {b.completed_at ? new Date(b.completed_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-sm capitalize">
-                            {b.completed_by ?? '—'}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">
-                            ${(b.commission_owed / 100).toFixed(2)}
-                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-medium">${(b.commission_owed / 100).toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+
+              {/* Paid bookings (collapsed summary) */}
+              {group.paid.length > 0 && (
+                <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <p className="text-sm font-medium">
+                      {group.paid.length} job{group.paid.length !== 1 ? 's' : ''} paid · ${(group.totalPaid / 100).toFixed(2)} received
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs text-green-600 dark:text-green-400">Invoiced</Badge>
                 </div>
               )}
 
@@ -244,26 +283,15 @@ export default async function BillingPage() {
                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
                   <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                     <AlertCircle className="w-4 h-4" />
-                    <p className="text-sm font-medium">
-                      {group.disputed.length} disputed booking{group.disputed.length !== 1 ? 's' : ''}
-                    </p>
+                    <p className="text-sm font-medium">{group.disputed.length} disputed booking{group.disputed.length !== 1 ? 's' : ''}</p>
                   </div>
                   {group.disputed.map((b) => (
                     <div key={b.id} className="flex items-center justify-between text-sm">
                       <span className="text-foreground">{b.leadName}</span>
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
-                          Disputed
-                        </Badge>
-                        <span className="font-mono text-muted-foreground">
-                          ${(b.commission_owed / 100).toFixed(2)}
-                        </span>
-                        <Link
-                          href="/admin/disputes"
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Resolve →
-                        </Link>
+                        <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Disputed</Badge>
+                        <span className="font-mono text-muted-foreground">${(b.commission_owed / 100).toFixed(2)}</span>
+                        <Link href="/admin/disputes" className="text-xs text-primary hover:underline">Resolve →</Link>
                       </div>
                     </div>
                   ))}

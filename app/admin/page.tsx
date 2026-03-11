@@ -34,13 +34,19 @@ export default async function AdminHomePage() {
     supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
   ])
 
-  // Total commission owed (completed + disputed)
+  // Commission breakdown: outstanding vs paid
   const { data: commissionData } = await supabase
     .from('bookings')
-    .select('commission_owed')
+    .select('commission_owed, commission_paid_at')
     .in('status', ['completed', 'disputed'])
 
-  const totalCommission = (commissionData ?? []).reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
+  const totalOutstanding = (commissionData ?? [])
+    .filter((b) => !(b as { commission_paid_at: string | null }).commission_paid_at)
+    .reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
+  const totalPaid = (commissionData ?? [])
+    .filter((b) => !!(b as { commission_paid_at: string | null }).commission_paid_at)
+    .reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
+  const totalCommission = totalOutstanding + totalPaid
 
   // Clients with their campaign counts
   const { data: clients } = await supabase
@@ -79,13 +85,20 @@ export default async function AdminHomePage() {
   )
 
   const stats = [
-    { label: 'Clients', value: String(totalClients ?? 0), icon: Users },
-    { label: 'Total leads', value: String(totalLeads ?? 0), icon: BarChart3 },
-    { label: 'Bookings', value: String(totalBookings ?? 0), icon: Calendar },
+    { label: 'Clients', value: String(totalClients ?? 0), icon: Users, colour: '' },
+    { label: 'Total leads', value: String(totalLeads ?? 0), icon: BarChart3, colour: '' },
+    { label: 'Bookings', value: String(totalBookings ?? 0), icon: Calendar, colour: '' },
     {
-      label: 'Commission owed',
-      value: `$${(totalCommission / 100).toFixed(2)}`,
+      label: 'Outstanding',
+      value: `$${(totalOutstanding / 100).toFixed(2)}`,
       icon: DollarSign,
+      colour: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      label: 'Total paid',
+      value: `$${(totalPaid / 100).toFixed(2)}`,
+      icon: DollarSign,
+      colour: 'text-green-600 dark:text-green-400',
     },
   ]
 
@@ -105,14 +118,14 @@ export default async function AdminHomePage() {
       </div>
 
       {/* Platform stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon }) => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {stats.map(({ label, value, icon: Icon, colour }) => (
           <div key={label} className="p-4 rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2 text-muted-foreground mb-2">
               <Icon className="w-4 h-4" />
               <p className="text-xs">{label}</p>
             </div>
-            <p className="text-2xl font-semibold text-foreground">{value}</p>
+            <p className={cn('text-2xl font-semibold', colour || 'text-foreground')}>{value}</p>
           </div>
         ))}
       </div>

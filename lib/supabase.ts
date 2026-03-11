@@ -169,6 +169,7 @@ export type Booking = {
   completed_by: 'client' | 'admin' | 'auto' | null
   commission_owed: number
   reminder_sent_at: string | null
+  commission_paid_at: string | null   // Set when agency marks as paid; NULL = outstanding
   created_at: string
 }
 

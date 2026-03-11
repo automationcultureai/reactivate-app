@@ -154,6 +154,15 @@ export default async function DashboardPage() {
     (allDisputes ?? []).map(d => [d.booking_id, d])
   )
 
+  // Total spend = sum of commission_owed for completed bookings for this client
+  const { data: spendData } = await supabase
+    .from('bookings')
+    .select('commission_owed')
+    .eq('client_id', client.id)
+    .eq('status', 'completed')
+
+  const totalSpend = (spendData ?? []).reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
+
   return (
     <>
       <DashboardNav clientName={clientDisplayName} />
@@ -175,6 +184,7 @@ export default async function DashboardPage() {
           openedCount={openedCount}
           clickedCount={clickedCount}
           completedCount={completedCount}
+          totalSpend={totalSpend}
         />
 
         <Separator />

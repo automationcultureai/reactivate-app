@@ -30,6 +30,7 @@ interface DashboardStatsProps {
   openedCount: number
   clickedCount: number
   completedCount: number
+  totalSpend: number   // in cents — sum of commission_owed for completed bookings
 }
 
 export function DashboardStats({
@@ -39,6 +40,7 @@ export function DashboardStats({
   openedCount,
   clickedCount,
   completedCount,
+  totalSpend,
 }: DashboardStatsProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -77,6 +79,12 @@ export function DashboardStats({
         value={pct(completedCount, bookedCount)}
         sub={`${completedCount} jobs completed`}
         tooltip="Percentage of booked appointments that were completed. Calculated as: jobs completed ÷ leads booked."
+      />
+      <StatCard
+        label="Total spend"
+        value={`$${(totalSpend / 100).toFixed(2)}`}
+        sub="Commission charged for completed jobs"
+        tooltip="Total commission charged by the agency for all completed jobs. This is the sum of the flat fee per completed appointment."
       />
     </div>
   )
