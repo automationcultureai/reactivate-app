@@ -99,6 +99,23 @@ export default async function DashboardPage() {
     openedCount = opened ?? 0
   }
 
+  const { data: recentEvents } = allLeadIds.length > 0
+    ? await supabase
+        .from('lead_events')
+        .select('lead_id, event_type, created_at')
+        .in('lead_id', allLeadIds)
+        .order('created_at', { ascending: false })
+    : { data: [] }
+
+  // Build map: lead_id → most recent event
+  const lastEventByLeadMap = new Map<string, { event_type: string; created_at: string }>()
+  for (const event of recentEvents ?? []) {
+    if (!lastEventByLeadMap.has(event.lead_id)) {
+      lastEventByLeadMap.set(event.lead_id, event)
+    }
+  }
+  const lastEventByLead = Object.fromEntries(lastEventByLeadMap)
+
   const clickedCount = (leads ?? []).filter((l) =>
     ['clicked', 'booked', 'completed'].includes(l.status)
   ).length
@@ -106,13 +123,15 @@ export default async function DashboardPage() {
   const completedCount = (leads ?? []).filter((l) => l.status === 'completed').length
   const bookedCount = rawBookedCount + completedCount
 
-  // Open disputes for this client
-  const { data: openDisputes } = await supabase
+  // All disputes for this client
+  const { data: allDisputes } = await supabase
     .from('commission_disputes')
-    .select('booking_id')
+    .select('booking_id, status, admin_notes, reason')
     .eq('client_id', client.id)
-    .eq('status', 'open')
-  const openDisputeBookingIds = new Set((openDisputes ?? []).map((d) => d.booking_id))
+
+  const disputesByBooking = Object.fromEntries(
+    (allDisputes ?? []).map(d => [d.booking_id, d])
+  )
 
   return (
     <>
@@ -149,7 +168,7 @@ export default async function DashboardPage() {
               </span>
             )}
           </h2>
-          <DashboardBookings bookings={bookings} openDisputeBookingIds={openDisputeBookingIds} />
+          <DashboardBookings bookings={bookings} disputesByBooking={disputesByBooking} />
         </div>
 
         <Separator />
@@ -169,7 +188,7 @@ export default async function DashboardPage() {
               Contact details are not displayed here for privacy.
             </p>
           </div>
-          <DashboardLeads leads={leads ?? []} />
+          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} />
         </div>
       </main>
     </>

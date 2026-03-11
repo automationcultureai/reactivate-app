@@ -23,11 +23,26 @@ const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
   send_failed: { label: 'Send failed', classes: 'bg-destructive/10 text-destructive' },
 }
 
-interface DashboardLeadsProps {
-  leads: Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>[]
+const EVENT_LABELS: Record<string, string> = {
+  email_sent: 'Email sent',
+  email_opened: 'Email opened',
+  sms_sent: 'SMS sent',
+  clicked: 'Visited booking page',
+  booked: 'Appointment booked',
+  completed: 'Job completed',
+  unsubscribed: 'Unsubscribed',
+  data_erased: 'Data erased',
+  booking_cancelled: 'Booking cancelled',
+  sms_opted_out: 'SMS opted out',
+  auto_completed: 'Auto-completed',
 }
 
-export function DashboardLeads({ leads }: DashboardLeadsProps) {
+interface DashboardLeadsProps {
+  leads: Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>[]
+  lastEventByLead: Record<string, { event_type: string; created_at: string }>
+}
+
+export function DashboardLeads({ leads, lastEventByLead }: DashboardLeadsProps) {
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
@@ -44,6 +59,7 @@ export function DashboardLeads({ leads }: DashboardLeadsProps) {
           <TableRow className="bg-muted/30">
             <TableHead className="font-medium">Name</TableHead>
             <TableHead className="font-medium">Status</TableHead>
+            <TableHead className="font-medium">Last action</TableHead>
             <TableHead className="font-medium">Added</TableHead>
           </TableRow>
         </TableHeader>
@@ -65,6 +81,16 @@ export function DashboardLeads({ leads }: DashboardLeadsProps) {
                   >
                     {badge.label}
                   </span>
+                </TableCell>
+                <TableCell>
+                  {lastEventByLead[lead.id] ? (
+                    <div>
+                      <p className="text-sm text-foreground">{EVENT_LABELS[lastEventByLead[lead.id].event_type] ?? lastEventByLead[lead.id].event_type}</p>
+                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(lastEventByLead[lead.id].created_at), { addSuffix: true })}</p>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}

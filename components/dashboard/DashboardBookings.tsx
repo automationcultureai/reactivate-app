@@ -33,19 +33,18 @@ const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
   disputed: { label: 'Disputed', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
 }
 
-const RESOLVED_BADGE = { label: 'Resolved', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' }
-
 interface DashboardBookingsProps {
   bookings: (Booking & { leadName: string })[]
-  openDisputeBookingIds: Set<string>
+  disputesByBooking: Record<string, { status: string; admin_notes: string | null; reason: string }>
 }
 
-export function DashboardBookings({ bookings: initialBookings, openDisputeBookingIds }: DashboardBookingsProps) {
+export function DashboardBookings({ bookings: initialBookings, disputesByBooking }: DashboardBookingsProps) {
   const [bookings, setBookings] = useState(initialBookings)
   const [completing, setCompleting] = useState<string | null>(null)
   const [disputeTarget, setDisputeTarget] = useState<string | null>(null)
   const [disputeReason, setDisputeReason] = useState('')
   const [disputing, setDisputing] = useState(false)
+  const [raisedDisputeIds, setRaisedDisputeIds] = useState<Set<string>>(new Set())
 
   async function handleComplete(bookingId: string) {
     setCompleting(bookingId)
@@ -89,6 +88,7 @@ export function DashboardBookings({ bookings: initialBookings, openDisputeBookin
       setBookings((prev) =>
         prev.map((b) => (b.id === disputeTarget ? { ...b, status: 'disputed' } : b))
       )
+      setRaisedDisputeIds(prev => new Set([...prev, disputeTarget!]))
       setDisputeTarget(null)
       setDisputeReason('')
     } catch {
@@ -121,12 +121,29 @@ export function DashboardBookings({ bookings: initialBookings, openDisputeBookin
           </TableHeader>
           <TableBody>
             {bookings.map((booking) => {
-              const isOpenDispute = openDisputeBookingIds.has(booking.id)
-              const badge =
-                booking.status === 'disputed' && !isOpenDispute
-                  ? RESOLVED_BADGE
-                  : (STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-muted text-muted-foreground' })
+              const dispute = disputesByBooking[booking.id]
+              const wasJustRaised = raisedDisputeIds.has(booking.id)
               const isCompleting = completing === booking.id
+
+              let displayStatus: string
+              let displayClass: string
+
+              if (booking.status === 'disputed' || wasJustRaised) {
+                if (dispute?.status === 'resolved') {
+                  displayStatus = 'Dispute upheld'
+                  displayClass = 'bg-green-500/10 text-green-600 dark:text-green-400'
+                } else if (dispute?.status === 'rejected') {
+                  displayStatus = 'Dispute rejected'
+                  displayClass = 'bg-destructive/10 text-destructive'
+                } else {
+                  displayStatus = 'Disputed'
+                  displayClass = 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                }
+              } else {
+                const badge = STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-muted text-muted-foreground' }
+                displayStatus = booking.status === 'completed' ? 'Completed' : badge.label
+                displayClass = badge.classes
+              }
 
               return (
                 <TableRow key={booking.id} className="hover:bg-muted/10">
@@ -137,9 +154,12 @@ export function DashboardBookings({ bookings: initialBookings, openDisputeBookin
                     {format(parseISO(booking.scheduled_at), 'EEE d MMM yyyy, h:mm a')}
                   </TableCell>
                   <TableCell>
-                    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
-                      {badge.label}
+                    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', displayClass)}>
+                      {displayStatus}
                     </span>
+                    {(dispute?.status === 'resolved' || dispute?.status === 'rejected') && dispute?.admin_notes && (
+                      <p className="text-xs text-muted-foreground italic mt-0.5">&quot;{dispute.admin_notes}&quot;</p>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -158,7 +178,7 @@ export function DashboardBookings({ bookings: initialBookings, openDisputeBookin
                           Mark complete
                         </Button>
                       )}
-                      {(booking.status === 'completed' || booking.status === 'disputed') && !isOpenDispute && (
+                      {booking.status === 'completed' && !dispute && !wasJustRaised && (
                         <Button
                           size="sm"
                           variant="ghost"

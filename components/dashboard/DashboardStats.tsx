@@ -5,9 +5,12 @@ function StatCard({ label, value, sub, tooltip }: { label: string; value: string
     <div className="p-4 rounded-lg border border-border bg-card">
       <div className="flex items-start justify-between gap-1">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <span title={tooltip} className="shrink-0 mt-0.5 cursor-help">
-          <Info className="w-3 h-3 text-muted-foreground/40" />
-        </span>
+        <div className="relative group">
+          <Info className="w-3 h-3 text-muted-foreground/40 cursor-help" />
+          <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
+            {tooltip}
+          </div>
+        </div>
       </div>
       <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
