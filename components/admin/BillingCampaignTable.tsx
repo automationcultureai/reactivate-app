@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,14 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { BillingStatusSelect, type InvoiceStatus } from './BillingStatusSelect'
+import { BillingStatusSelect, STATUS_LABELS, type InvoiceStatus } from './BillingStatusSelect'
 import { Loader2 } from 'lucide-react'
-
-const STATUS_LABELS: Record<InvoiceStatus, string> = {
-  outstanding:  'Outstanding',
-  invoice_sent: 'Invoice sent',
-  invoice_paid: 'Invoice paid',
-}
 
 export interface BillingBookingRow {
   id: string
@@ -46,35 +39,42 @@ interface BillingCampaignTableProps {
   total: number
 }
 
-const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const fmt     = (cents: number) => `$${(cents / 100).toFixed(2)}`
 const fmtDate = (d: string | null) =>
   d ? new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
 export function BillingCampaignTable({ campaignName, bookings, total }: BillingCampaignTableProps) {
-  const router = useRouter()
-  const [selected, setSelected]       = useState<Set<string>>(new Set())
-  const [bulkStatus, setBulkStatus]   = useState<InvoiceStatus>('invoice_sent')
-  const [campaignStatus, setCampaignStatus] = useState<InvoiceStatus>('invoice_sent')
-  const [working, setWorking]         = useState(false)
+  // ── Status state — owned here, passed down as controlled values ────────────
+  const [statusMap, setStatusMap] = useState<Record<string, InvoiceStatus>>(() =>
+    Object.fromEntries(bookings.map((b) => [b.id, b.invoiceStatus]))
+  )
 
-  const allIds = bookings.map((b) => b.id)
+  // ── Selection state ────────────────────────────────────────────────────────
+  const [selected, setSelected]             = useState<Set<string>>(new Set())
+  const [bulkStatus, setBulkStatus]         = useState<InvoiceStatus>('invoice_sent')
+  const [campaignStatus, setCampaignStatus] = useState<InvoiceStatus>('invoice_sent')
+  const [working, setWorking]               = useState(false)
+
+  const allIds      = bookings.map((b) => b.id)
   const allSelected = selected.size === allIds.length && allIds.length > 0
 
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(allIds))
-  }
-
+  function toggleAll() { setSelected(allSelected ? new Set() : new Set(allIds)) }
   function toggleOne(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
-  async function applyStatus(ids: string[], status: InvoiceStatus) {
+  // ── Single applyStatus — used for all 3 paths (row, bulk-selected, all) ───
+  const applyStatus = useCallback(async (ids: string[], status: InvoiceStatus) => {
     if (ids.length === 0) return
+
+    // Save previous for rollback
+    const prev: Record<string, InvoiceStatus> = {}
+    ids.forEach((id) => { prev[id] = statusMap[id] ?? 'outstanding' })
+
+    // Optimistic update — instant, no waiting
+    setStatusMap((m) => { const n = { ...m }; ids.forEach((id) => { n[id] = status }); return n })
     setWorking(true)
+
     try {
       const res = await fetch('/api/billing/set-status', {
         method: 'POST',
@@ -82,19 +82,21 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
         body: JSON.stringify({ booking_ids: ids, status }),
       })
       if (!res.ok) {
+        // Revert on failure
+        setStatusMap((m) => { const n = { ...m }; Object.assign(n, prev); return n })
         const json = await res.json()
         toast.error(json.error ?? 'Failed to update')
         return
       }
       toast.success(`${ids.length} booking${ids.length !== 1 ? 's' : ''} marked as ${STATUS_LABELS[status]}`)
       setSelected(new Set())
-      router.refresh()
     } catch {
+      setStatusMap((m) => { const n = { ...m }; Object.assign(n, prev); return n })
       toast.error('Something went wrong')
     } finally {
       setWorking(false)
     }
-  }
+  }, [statusMap])
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -104,8 +106,6 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
           <p className="text-xs font-semibold text-foreground">{campaignName}</p>
           <p className="text-xs font-mono text-muted-foreground">{fmt(total)}</p>
         </div>
-
-        {/* Campaign-level bulk action */}
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground">Set all to:</span>
           <Select
@@ -123,9 +123,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
             </SelectContent>
           </Select>
           <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs px-2.5"
+            size="sm" variant="outline" className="h-7 text-xs px-2.5"
             disabled={working}
             onClick={() => applyStatus(allIds, campaignStatus)}
           >
@@ -134,7 +132,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
         </div>
       </div>
 
-      {/* Bulk selection bar — only shown when rows are checked */}
+      {/* Bulk selection bar */}
       {selected.size > 0 && (
         <div className="px-4 py-2 bg-primary/5 border-b border-border flex items-center gap-3 flex-wrap">
           <span className="text-xs font-medium text-foreground">{selected.size} selected</span>
@@ -153,9 +151,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
             </SelectContent>
           </Select>
           <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs px-2.5"
+            size="sm" variant="outline" className="h-7 text-xs px-2.5"
             disabled={working}
             onClick={() => applyStatus(Array.from(selected), bulkStatus)}
           >
@@ -174,12 +170,8 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
         <TableHeader>
           <TableRow className="bg-muted/10">
             <TableHead className="w-10">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleAll}
-                className="rounded border-border cursor-pointer"
-              />
+              <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                className="rounded border-border cursor-pointer" />
             </TableHead>
             <TableHead className="font-medium">Lead</TableHead>
             <TableHead className="font-medium">Appointment</TableHead>
@@ -196,12 +188,8 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
               className={cn('hover:bg-muted/10', selected.has(b.id) && 'bg-primary/5')}
             >
               <TableCell>
-                <input
-                  type="checkbox"
-                  checked={selected.has(b.id)}
-                  onChange={() => toggleOne(b.id)}
-                  className="rounded border-border cursor-pointer"
-                />
+                <input type="checkbox" checked={selected.has(b.id)} onChange={() => toggleOne(b.id)}
+                  className="rounded border-border cursor-pointer" />
               </TableCell>
               <TableCell className="text-foreground text-sm">{b.leadName}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
@@ -209,7 +197,11 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
               <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
               <TableCell className="text-right font-mono text-sm font-medium">{fmt(b.commission_owed)}</TableCell>
               <TableCell>
-                <BillingStatusSelect bookingId={b.id} initialStatus={b.invoiceStatus} />
+                <BillingStatusSelect
+                  status={statusMap[b.id] ?? b.invoiceStatus}
+                  onStatusChange={(s) => applyStatus([b.id], s)}
+                  disabled={working}
+                />
               </TableCell>
             </TableRow>
           ))}
