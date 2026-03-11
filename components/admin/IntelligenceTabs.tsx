@@ -298,7 +298,7 @@ export function IntelligenceTabs({ data }: { data: IntelligenceData }) {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="tone" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} unit="%" />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Tooltip formatter={(v) => `${v}%`} />
                       <Bar dataKey="avgOpenRate" name="Open rate" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="avgBookingRate" name="Booking rate" fill="hsl(var(--primary) / 0.4)" radius={[3, 3, 0, 0]} />
                     </BarChart>
@@ -350,7 +350,7 @@ export function IntelligenceTabs({ data }: { data: IntelligenceData }) {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="channel" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} unit="%" />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Tooltip formatter={(v) => `${v}%`} />
                       <Bar dataKey="avgBookingRate" name="Booking rate" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="avgCompletionRate" name="Completion rate" fill="hsl(var(--primary) / 0.4)" radius={[3, 3, 0, 0]} />
                     </BarChart>
@@ -403,7 +403,7 @@ export function IntelligenceTabs({ data }: { data: IntelligenceData }) {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="industry" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 12 }} unit="%" />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Tooltip formatter={(v) => `${v}%`} />
                       <Bar dataKey="avgOpenRate" name="Open rate" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="avgBookingRate" name="Booking rate" fill="hsl(var(--primary) / 0.4)" radius={[3, 3, 0, 0]} />
                     </BarChart>
@@ -458,7 +458,7 @@ export function IntelligenceTabs({ data }: { data: IntelligenceData }) {
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} unit="%" />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Tooltip formatter={(v) => `${v}%`} />
                       <Bar dataKey="openRate" name="Open rate" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
                       <Bar dataKey="clickRate" name="Click rate" fill="hsl(var(--primary) / 0.4)" radius={[3, 3, 0, 0]} />
                     </BarChart>
