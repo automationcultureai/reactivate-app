@@ -37,12 +37,20 @@ const EVENT_LABELS: Record<string, string> = {
   auto_completed: 'Auto-completed',
 }
 
+const EMAIL_SEQ_LABELS: Record<number, string> = {
+  1: 'Email 1 sent — Initial outreach',
+  2: 'Email 2 sent — Follow-up',
+  3: 'Email 3 sent — Final follow-up',
+  4: 'Email 4 sent — Re-engagement',
+}
+
 interface DashboardLeadsProps {
   leads: Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>[]
   lastEventByLead: Record<string, { event_type: string; created_at: string }>
+  latestEmailByLead: Record<string, { sequence_number: number; sent_at: string }>
 }
 
-export function DashboardLeads({ leads, lastEventByLead }: DashboardLeadsProps) {
+export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead }: DashboardLeadsProps) {
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
@@ -83,14 +91,43 @@ export function DashboardLeads({ leads, lastEventByLead }: DashboardLeadsProps) 
                   </span>
                 </TableCell>
                 <TableCell>
-                  {lastEventByLead[lead.id] ? (
-                    <div>
-                      <p className="text-sm text-foreground">{EVENT_LABELS[lastEventByLead[lead.id].event_type] ?? lastEventByLead[lead.id].event_type}</p>
-                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(lastEventByLead[lead.id].created_at), { addSuffix: true })}</p>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
+                  {(() => {
+                    const email = latestEmailByLead[lead.id]
+                    const event = lastEventByLead[lead.id]
+
+                    // Determine which is more recent
+                    const emailTime = email ? new Date(email.sent_at).getTime() : 0
+                    const eventTime = event ? new Date(event.created_at).getTime() : 0
+
+                    if (!email && !event) {
+                      return <span className="text-muted-foreground text-sm">No activity yet</span>
+                    }
+
+                    if (email && emailTime >= eventTime) {
+                      return (
+                        <div>
+                          <p className="text-sm text-foreground">
+                            {EMAIL_SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number} sent`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(email.sent_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      )
+                    }
+
+                    // Non-email event is more recent (clicked, booked, etc.)
+                    return (
+                      <div>
+                        <p className="text-sm text-foreground">
+                          {EVENT_LABELS[event!.event_type] ?? event!.event_type}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(event!.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}

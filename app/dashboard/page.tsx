@@ -99,15 +99,36 @@ export default async function DashboardPage() {
     openedCount = opened ?? 0
   }
 
+  // Fetch the most recent sent email per lead (for "Email N sent" display)
+  const { data: sentEmails } = allLeadIds.length > 0
+    ? await supabase
+        .from('emails')
+        .select('lead_id, sequence_number, sent_at')
+        .in('lead_id', allLeadIds)
+        .not('sent_at', 'is', null)
+        .order('sequence_number', { ascending: false })
+    : { data: [] }
+
+  // Build map: lead_id → highest sequence_number sent
+  const latestEmailByLeadMap = new Map<string, { sequence_number: number; sent_at: string }>()
+  for (const e of sentEmails ?? []) {
+    if (!latestEmailByLeadMap.has(e.lead_id)) {
+      latestEmailByLeadMap.set(e.lead_id, { sequence_number: e.sequence_number, sent_at: e.sent_at! })
+    }
+  }
+  const latestEmailByLead = Object.fromEntries(latestEmailByLeadMap)
+
+  // Fetch non-email events (clicked, booked, completed etc.) for "last action" display
   const { data: recentEvents } = allLeadIds.length > 0
     ? await supabase
         .from('lead_events')
         .select('lead_id, event_type, created_at')
         .in('lead_id', allLeadIds)
+        .not('event_type', 'in', '(email_sent)')   // exclude email_sent — we use the emails table instead
         .order('created_at', { ascending: false })
     : { data: [] }
 
-  // Build map: lead_id → most recent event
+  // Build map: lead_id → most recent non-email event
   const lastEventByLeadMap = new Map<string, { event_type: string; created_at: string }>()
   for (const event of recentEvents ?? []) {
     if (!lastEventByLeadMap.has(event.lead_id)) {
@@ -188,7 +209,7 @@ export default async function DashboardPage() {
               Contact details are not displayed here for privacy.
             </p>
           </div>
-          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} />
+          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} latestEmailByLead={latestEmailByLead} />
         </div>
       </main>
     </>
