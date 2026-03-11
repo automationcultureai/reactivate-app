@@ -9,9 +9,10 @@ import { CampaignBookings } from '@/components/admin/CampaignBookings'
 import { PauseResumeButton } from '@/components/admin/PauseResumeButton'
 import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLeadList'
 import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
+import { AddLeadsButton } from '@/components/admin/AddLeadsButton'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap } from 'lucide-react'
-import type { Booking, Lead, LeadEvent } from '@/lib/supabase'
+import type { Booking, Lead, LeadEvent, Email } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -40,9 +41,11 @@ export default async function CampaignDetailPage({ params }: Props) {
 
   const { data: client } = await supabase
     .from('clients')
-    .select('name')
+    .select('name, email, business_name, business_address')
     .eq('id', clientId)
     .single()
+
+  const clientData = client as { name: string; email: string; business_name: string | null; business_address: string | null } | null
 
   const { count: leadCount } = await supabase
     .from('leads')
@@ -51,7 +54,7 @@ export default async function CampaignDetailPage({ params }: Props) {
 
   const leads = leadCount ?? 0
 
-  // Fetch unresolved failed sends with lead names
+  // Fetch unresolved failed sends
   const { data: rawFailures } = await supabase
     .from('send_failures')
     .select('*, leads(name)')
@@ -64,20 +67,17 @@ export default async function CampaignDetailPage({ params }: Props) {
     leadName: (f.leads as { name: string } | null)?.name ?? 'Unknown lead',
   }))
 
-  // Fetch bookings for leads in this campaign (for admin override section)
-  const { data: leadIds } = await supabase
+  // Fetch lead IDs for joins
+  const { data: leadIdRows } = await supabase
     .from('leads')
     .select('id')
     .eq('campaign_id', campaignId)
 
-  const allLeadIds = (leadIds ?? []).map((l) => l.id)
+  const allLeadIds = (leadIdRows ?? []).map((l) => l.id)
+
+  // Bookings
   const rawBookings = allLeadIds.length > 0
-    ? (await supabase
-        .from('bookings')
-        .select('*, leads(name)')
-        .in('lead_id', allLeadIds)
-        .order('scheduled_at', { ascending: false })
-      ).data ?? []
+    ? (await supabase.from('bookings').select('*, leads(name)').in('lead_id', allLeadIds).order('scheduled_at', { ascending: false })).data ?? []
     : []
 
   const bookings = rawBookings.map((b) => ({
@@ -85,7 +85,7 @@ export default async function CampaignDetailPage({ params }: Props) {
     leadName: (b.leads as unknown as { name: string } | null)?.name ?? 'Unknown',
   }))
 
-  // Fetch all leads with their event logs (for audit log + GDPR erasure section)
+  // Leads with events + emails
   const { data: allLeads } = await supabase
     .from('leads')
     .select('*')
@@ -93,13 +93,14 @@ export default async function CampaignDetailPage({ params }: Props) {
     .order('created_at', { ascending: true })
 
   let leadsWithEvents: LeadWithEvents[] = []
+
   if (allLeads && allLeads.length > 0) {
     const ids = allLeads.map((l) => l.id)
-    const { data: events } = await supabase
-      .from('lead_events')
-      .select('*')
-      .in('lead_id', ids)
-      .order('created_at', { ascending: false })
+
+    const [{ data: events }, { data: allEmails }] = await Promise.all([
+      supabase.from('lead_events').select('*').in('lead_id', ids).order('created_at', { ascending: false }),
+      supabase.from('emails').select('*').in('lead_id', ids).order('sequence_number', { ascending: true }),
+    ])
 
     const eventsByLead = new Map<string, LeadEvent[]>()
     for (const e of events ?? []) {
@@ -107,100 +108,87 @@ export default async function CampaignDetailPage({ params }: Props) {
       eventsByLead.get(e.lead_id)!.push(e as LeadEvent)
     }
 
+    const emailsByLead = new Map<string, Email[]>()
+    for (const e of allEmails ?? []) {
+      if (!emailsByLead.has(e.lead_id)) emailsByLead.set(e.lead_id, [])
+      emailsByLead.get(e.lead_id)!.push(e as Email)
+    }
+
     leadsWithEvents = (allLeads as Lead[]).map((l) => ({
       ...l,
       events: eventsByLead.get(l.id) ?? [],
+      emails: emailsByLead.get(l.id) ?? [],
     }))
   }
 
-  // Compute analytics from allLeads + email open counts
+  // Analytics
   const emailedStatuses = ['emailed', 'sms_sent', 'clicked', 'booked', 'completed']
   const emailedLeads = (allLeads ?? []).filter((l) => emailedStatuses.includes(l.status)).length
-  const clickedLeads = (allLeads ?? []).filter((l) =>
-    ['clicked', 'booked', 'completed'].includes(l.status)
-  ).length
-  const bookedLeads = (allLeads ?? []).filter((l) =>
-    ['booked', 'completed'].includes(l.status)
-  ).length
+  const clickedLeads = (allLeads ?? []).filter((l) => ['clicked', 'booked', 'completed'].includes(l.status)).length
+  const bookedLeads = (allLeads ?? []).filter((l) => ['booked', 'completed'].includes(l.status)).length
   const completedLeads = (allLeads ?? []).filter((l) => l.status === 'completed').length
 
   let emailsOpenedCount = 0
   if (allLeadIds.length > 0) {
-    const { count } = await supabase
-      .from('emails')
-      .select('id', { count: 'exact', head: true })
-      .in('lead_id', allLeadIds)
-      .not('opened_at', 'is', null)
+    const { count } = await supabase.from('emails').select('id', { count: 'exact', head: true }).in('lead_id', allLeadIds).not('opened_at', 'is', null)
     emailsOpenedCount = count ?? 0
   }
+
+  const canAddLeads = !['complete'].includes(campaign.status)
 
   return (
     <div className="space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
-        <Link
-          href={`/admin/clients/${clientId}`}
-          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
-        >
+        <Link href={`/admin/clients/${clientId}`} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}>
           <ChevronLeft className="w-4 h-4" />
         </Link>
-        <span className="text-sm text-muted-foreground">{client?.name}</span>
+        <span className="text-sm text-muted-foreground">{clientData?.name}</span>
       </div>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-foreground">{campaign.name}</h1>
-            <span
-              className={cn(
-                'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize',
-                STATUS_STYLES[campaign.status] ?? 'bg-muted text-muted-foreground'
-              )}
-            >
+            <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[campaign.status] ?? 'bg-muted text-muted-foreground')}>
               {campaign.status}
             </span>
           </div>
           <p className="text-sm text-muted-foreground capitalize">
             {campaign.channel} · {campaign.tone_preset} tone · {leads} leads
-            {failures.length > 0 && (
-              <span className="text-destructive ml-2">· {failures.length} failed</span>
-            )}
+            {failures.length > 0 && <span className="text-destructive ml-2">· {failures.length} failed</span>}
           </p>
         </div>
 
-        {/* Action button varies by status */}
-        {campaign.status === 'draft' && (
-          <GenerateButton campaignId={campaignId} clientId={clientId} leadCount={leads} />
-        )}
-
-        {campaign.status === 'ready' && (
-          <Link
-            href={`/admin/clients/${clientId}/campaigns/${campaignId}/preview`}
-            className={cn(buttonVariants())}
-          >
-            Preview &amp; send
-          </Link>
-        )}
-
-        {/* Pause / Resume — shown for active and paused campaigns */}
-        {(campaign.status === 'active' || campaign.status === 'paused') && (
-          <PauseResumeButton
-            campaignId={campaignId}
-            currentStatus={campaign.status as 'active' | 'paused'}
-          />
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {canAddLeads && (
+            <AddLeadsButton
+              campaignId={campaignId}
+              channel={campaign.channel as 'email' | 'sms' | 'both'}
+            />
+          )}
+          {campaign.status === 'draft' && (
+            <GenerateButton campaignId={campaignId} clientId={clientId} leadCount={leads} />
+          )}
+          {campaign.status === 'ready' && (
+            <Link href={`/admin/clients/${clientId}/campaigns/${campaignId}/preview`} className={cn(buttonVariants())}>
+              Preview &amp; send
+            </Link>
+          )}
+          {(campaign.status === 'active' || campaign.status === 'paused') && (
+            <PauseResumeButton campaignId={campaignId} currentStatus={campaign.status as 'active' | 'paused'} />
+          )}
+        </div>
       </div>
 
-      {/* Status-based info panel */}
+      {/* Status info */}
       {campaign.status === 'draft' && (
         <div className="rounded-lg border border-border p-6 text-center space-y-3">
           <Zap className="w-8 h-8 text-muted-foreground/40 mx-auto" />
           <p className="text-sm font-medium text-foreground">Ready to generate</p>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Click <strong>Generate sequences</strong> above to have Claude create personalised email
-            and SMS sequences for all {leads} leads. You&apos;ll review and edit everything before
-            anything is sent.
+            Click <strong>Generate sequences</strong> above to have Claude create personalised email and SMS sequences for all {leads} leads.
           </p>
         </div>
       )}
@@ -209,13 +197,12 @@ export default async function CampaignDetailPage({ params }: Props) {
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-6 text-center space-y-3">
           <p className="text-sm font-medium text-foreground">Sequences ready</p>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            All sequences have been generated. Click <strong>Preview &amp; send</strong> to review
-            and edit emails before approving the campaign.
+            Click <strong>Preview &amp; send</strong> to review and edit emails before approving.
           </p>
         </div>
       )}
 
-      {/* Campaign metadata grid */}
+      {/* Metadata */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Channel', value: campaign.channel.toUpperCase() },
@@ -230,56 +217,52 @@ export default async function CampaignDetailPage({ params }: Props) {
         ))}
       </div>
 
-      {/* Analytics — shown once campaign has sent email 1 to at least one lead */}
+      {/* Analytics */}
       {emailedLeads > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
             <h3 className="text-base font-semibold text-foreground">Performance</h3>
-            <CampaignAnalytics
-              emailsSent={emailedLeads}
-              emailsOpened={emailsOpenedCount}
-              leadCount={leads}
-              clickedCount={clickedLeads}
-              bookedCount={bookedLeads}
-              completedCount={completedLeads}
-            />
+            <CampaignAnalytics emailsSent={emailedLeads} emailsOpened={emailsOpenedCount} leadCount={leads} clickedCount={clickedLeads} bookedCount={bookedLeads} completedCount={completedLeads} />
           </div>
         </>
       )}
 
-      {/* Bookings section — with admin override complete button */}
+      {/* Bookings */}
       {bookings.length > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
-            <h3 className="text-base font-semibold text-foreground">
-              Bookings ({bookings.length})
-            </h3>
+            <h3 className="text-base font-semibold text-foreground">Bookings ({bookings.length})</h3>
             <CampaignBookings bookings={bookings} />
           </div>
         </>
       )}
 
-      {/* Leads with event log + GDPR erasure */}
+      {/* Leads list */}
       {leadsWithEvents.length > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
             <div>
-              <h3 className="text-base font-semibold text-foreground">
-                Leads ({leadsWithEvents.length})
-              </h3>
+              <h3 className="text-base font-semibold text-foreground">Leads ({leadsWithEvents.length})</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Click any row to expand the full audit log. Use the trash icon to erase personal data (GDPR right to erasure).
+                Click a row to expand emails and audit log. Use action buttons to edit, opt out, send next email, or erase data.
               </p>
             </div>
-            <CampaignLeadList leads={leadsWithEvents} />
+            <CampaignLeadList
+              leads={leadsWithEvents}
+              campaignId={campaignId}
+              campaignStatus={campaign.status}
+              clientEmail={clientData?.email}
+              clientBusinessName={clientData?.business_name ?? clientData?.name}
+              clientBusinessAddress={clientData?.business_address ?? undefined}
+            />
           </div>
         </>
       )}
 
-      {/* Failed sends section — only shown when failures exist */}
+      {/* Failed sends */}
       {failures.length > 0 && (
         <>
           <Separator />
