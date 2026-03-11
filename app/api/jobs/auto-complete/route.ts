@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('lead_events').insert({
       lead_id: booking.lead_id,
       event_type: 'auto_completed',
-      description: `Job auto-completed after ${autoCompleteDays} days`,
+      description: 'Job auto-completed after appointment time passed',
     })
 
     completed++

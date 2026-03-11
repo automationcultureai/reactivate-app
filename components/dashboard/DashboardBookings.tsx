@@ -208,9 +208,11 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                       <div className="flex items-center gap-1.5">
                         <Select
                           value={getAction(booking.id)}
-                          onValueChange={(v: 'complete' | 'cancel') =>
-                            setBookingActions(prev => ({ ...prev, [booking.id]: v }))
-                          }
+                          onValueChange={(v) => {
+                            if (v === 'complete' || v === 'cancel') {
+                              setBookingActions(prev => ({ ...prev, [booking.id]: v }))
+                            }
+                          }}
                           disabled={isWorking}
                         >
                           <SelectTrigger className="h-7 text-xs w-40">
