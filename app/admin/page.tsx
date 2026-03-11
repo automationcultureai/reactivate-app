@@ -52,8 +52,26 @@ export default async function AdminHomePage() {
     .select('id, name, business_name, commission_per_job')
     .order('created_at', { ascending: false })
 
+  // Latest aggregate health score per client
+  const clientIdList = (clients ?? []).map((c) => c.id)
+  const { data: allHealthScores } = clientIdList.length > 0
+    ? await supabase
+        .from('list_health_scores')
+        .select('client_id, score, tier, calculated_at')
+        .in('client_id', clientIdList)
+        .is('campaign_id', null)
+        .order('calculated_at', { ascending: false })
+    : { data: [] }
+
+  const latestHealthByClient = new Map<string, { score: number; tier: string }>()
+  for (const h of allHealthScores ?? []) {
+    if (!latestHealthByClient.has(h.client_id)) {
+      latestHealthByClient.set(h.client_id, { score: h.score, tier: h.tier })
+    }
+  }
+
   const clientStats = await Promise.all(
-    (clients ?? []).map(async (client) => {
+    (clients ?? []).map(async (client: { id: string; name: string; business_name: string | null; commission_per_job: number }) => {
       const [
         { count: campaigns },
         { count: activeCampaigns },
@@ -77,6 +95,7 @@ export default async function AdminHomePage() {
         leads: leads ?? 0,
         completed: completed ?? 0,
         commissionOwed: totalOwed,
+        health: latestHealthByClient.get(client.id) ?? null,
       }
     })
   )
@@ -142,6 +161,7 @@ export default async function AdminHomePage() {
                   <TableHead className="font-medium">Completed</TableHead>
                   <TableHead className="font-medium">Conv. rate</TableHead>
                   <TableHead className="font-medium">Commission owed</TableHead>
+                  <TableHead className="font-medium">Health</TableHead>
                   <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
@@ -168,6 +188,27 @@ export default async function AdminHomePage() {
                     </TableCell>
                     <TableCell className="font-mono text-sm text-foreground">
                       ${(client.commissionOwed / 100).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {client.health ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className={cn(
+                            'w-2 h-2 rounded-full shrink-0',
+                            client.health.tier === 'healthy' ? 'bg-green-500' :
+                            client.health.tier === 'moderate' ? 'bg-amber-500' : 'bg-red-500'
+                          )} />
+                          <span className={cn(
+                            'text-xs font-mono font-semibold',
+                            client.health.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
+                            client.health.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
+                            'text-red-600 dark:text-red-400'
+                          )}>
+                            {client.health.score}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="pr-2">
                       <Link

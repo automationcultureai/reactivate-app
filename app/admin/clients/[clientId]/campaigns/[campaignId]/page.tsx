@@ -11,7 +11,7 @@ import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLea
 import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
 import { AddLeadsButton } from '@/components/admin/AddLeadsButton'
 import { Separator } from '@/components/ui/separator'
-import { ChevronLeft, Zap } from 'lucide-react'
+import { ChevronLeft, Zap, AlertTriangle } from 'lucide-react'
 import type { Booking, Lead, LeadEvent, Email } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -136,6 +136,16 @@ export default async function CampaignDetailPage({ params }: Props) {
 
   const canAddLeads = !['complete'].includes(campaign.status)
 
+  // Latest health score for this campaign
+  const { data: healthRows } = await supabase
+    .from('list_health_scores')
+    .select('score, tier, recommendations, calculated_at')
+    .eq('campaign_id', campaignId)
+    .order('calculated_at', { ascending: false })
+    .limit(1)
+
+  const campaignHealth = healthRows?.[0] ?? null
+
   // Count pending leads (newly added, no sequences yet) — shows Generate button on active campaigns
   const pendingLeadCount = (allLeads ?? []).filter((l) => l.status === 'pending').length
 
@@ -211,6 +221,23 @@ export default async function CampaignDetailPage({ params }: Props) {
         </div>
       )}
 
+      {/* Health score warning banner — shown when score < 60 */}
+      {campaignHealth && campaignHealth.score < 60 && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <div className="space-y-1 min-w-0">
+            <p className="text-sm font-medium text-red-600 dark:text-red-400">
+              List health at risk — score {campaignHealth.score}/100
+            </p>
+            {(campaignHealth.recommendations as Array<{ message: string }> | null)?.[0] && (
+              <p className="text-xs text-muted-foreground">
+                {(campaignHealth.recommendations as Array<{ message: string }>)[0].message}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Metadata */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -224,6 +251,22 @@ export default async function CampaignDetailPage({ params }: Props) {
             <p className="text-sm font-medium text-foreground mt-1 capitalize">{value}</p>
           </div>
         ))}
+        {campaignHealth && (
+          <div className="p-4 rounded-lg border border-border">
+            <p className="text-xs text-muted-foreground">List health</p>
+            <p className={cn(
+              'text-sm font-semibold mt-1 font-mono',
+              campaignHealth.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
+              campaignHealth.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
+              'text-red-600 dark:text-red-400'
+            )}>
+              {campaignHealth.score}/100
+            </p>
+            <p className="text-xs text-muted-foreground capitalize mt-0.5">
+              {(campaignHealth.tier as string).replace('_', ' ')}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Analytics */}

@@ -78,7 +78,23 @@ export type Client = {
   business_name: string | null     // Used in email footers; falls back to name if null
   business_address: string | null  // Postal address for legal email footer compliance
   notes: string | null
+  client_industry: string | null   // Added by migration 007 — used in intelligence dashboard
   created_at: string
+}
+
+export type ListHealthScore = {
+  id: string
+  client_id: string
+  campaign_id: string | null  // null = client aggregate score
+  score: number
+  tier: 'healthy' | 'moderate' | 'at_risk'
+  bounce_count: number
+  unsubscribe_count: number
+  complaint_count: number
+  open_rate: number | null
+  click_rate: number | null
+  recommendations: Array<{ trigger: string; message: string }> | null
+  calculated_at: string
 }
 
 export type CampaignTemplate = {

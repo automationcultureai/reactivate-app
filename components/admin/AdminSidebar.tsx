@@ -14,6 +14,8 @@ import {
   Zap,
   LogOut,
   CalendarDays,
+  Activity,
+  BarChart2,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
@@ -24,6 +26,8 @@ const navItems = [
   { label: 'Templates', href: '/admin/templates', icon: FileText, exact: false },
   { label: 'Disputes', href: '/admin/disputes', icon: AlertCircle, exact: false },
   { label: 'Billing', href: '/admin/billing', icon: CreditCard, exact: false },
+  { label: 'Deliverability', href: '/admin/deliverability', icon: Activity, exact: false },
+  { label: 'Intelligence', href: '/admin/intelligence', icon: BarChart2, exact: false },
   { label: 'Settings', href: '/admin/settings', icon: Settings, exact: false },
 ]
 
