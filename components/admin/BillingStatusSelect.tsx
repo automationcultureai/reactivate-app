@@ -44,7 +44,7 @@ export function BillingStatusSelect({ bookingId, initialStatus }: BillingStatusS
       const res = await fetch('/api/billing/set-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ booking_id: bookingId, status: newStatus }),
+        body: JSON.stringify({ booking_ids: [bookingId], status: newStatus }),
       })
       if (!res.ok) {
         setStatus(prev)

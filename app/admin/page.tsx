@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, Users, BarChart3, DollarSign, Calendar } from 'lucide-react'
+import { ArrowRight, Users, BarChart3, DollarSign, Calendar, CheckCircle, XCircle } from 'lucide-react'
 
 function pct(num: number, denom: number): string {
   if (!denom) return '—'
@@ -21,20 +21,20 @@ function pct(num: number, denom: number): string {
 export default async function AdminHomePage() {
   const supabase = getSupabaseClient()
 
-  // Aggregate platform stats
   const [
     { count: totalClients },
     { count: totalLeads },
-    { count: totalBookings },
+    { count: activeBookings },
     { count: totalCompleted },
+    { count: totalCancelled },
   ] = await Promise.all([
     supabase.from('clients').select('id', { count: 'exact', head: true }),
     supabase.from('leads').select('id', { count: 'exact', head: true }),
-    supabase.from('bookings').select('id', { count: 'exact', head: true }),
+    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'booked'),
     supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+    supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'cancelled'),
   ])
 
-  // Commission breakdown: outstanding vs paid
   const { data: commissionData } = await supabase
     .from('bookings')
     .select('commission_owed, commission_paid_at')
@@ -46,15 +46,12 @@ export default async function AdminHomePage() {
   const totalPaid = (commissionData ?? [])
     .filter((b) => !!(b as { commission_paid_at: string | null }).commission_paid_at)
     .reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
-  const totalCommission = totalOutstanding + totalPaid
 
-  // Clients with their campaign counts
   const { data: clients } = await supabase
     .from('clients')
     .select('id, name, business_name, commission_per_job')
     .order('created_at', { ascending: false })
 
-  // Per-client stats: campaigns, active leads, completed jobs, commission
   const clientStats = await Promise.all(
     (clients ?? []).map(async (client) => {
       const [
@@ -87,19 +84,11 @@ export default async function AdminHomePage() {
   const stats = [
     { label: 'Clients', value: String(totalClients ?? 0), icon: Users, colour: '' },
     { label: 'Total leads', value: String(totalLeads ?? 0), icon: BarChart3, colour: '' },
-    { label: 'Bookings', value: String(totalBookings ?? 0), icon: Calendar, colour: '' },
-    {
-      label: 'Outstanding',
-      value: `$${(totalOutstanding / 100).toFixed(2)}`,
-      icon: DollarSign,
-      colour: 'text-amber-600 dark:text-amber-400',
-    },
-    {
-      label: 'Total paid',
-      value: `$${(totalPaid / 100).toFixed(2)}`,
-      icon: DollarSign,
-      colour: 'text-green-600 dark:text-green-400',
-    },
+    { label: 'Active bookings', value: String(activeBookings ?? 0), icon: Calendar, colour: 'text-blue-600 dark:text-blue-400' },
+    { label: 'Jobs completed', value: String(totalCompleted ?? 0), icon: CheckCircle, colour: 'text-green-600 dark:text-green-400' },
+    { label: 'Cancelled', value: String(totalCancelled ?? 0), icon: XCircle, colour: 'text-muted-foreground' },
+    { label: 'Outstanding', value: `$${(totalOutstanding / 100).toFixed(2)}`, icon: DollarSign, colour: 'text-amber-600 dark:text-amber-400' },
+    { label: 'Total paid', value: `$${(totalPaid / 100).toFixed(2)}`, icon: DollarSign, colour: 'text-green-600 dark:text-green-400' },
   ]
 
   return (
@@ -118,7 +107,7 @@ export default async function AdminHomePage() {
       </div>
 
       {/* Platform stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, colour }) => (
           <div key={label} className="p-4 rounded-lg border border-border bg-card">
             <div className="flex items-center gap-2 text-muted-foreground mb-2">
@@ -130,16 +119,14 @@ export default async function AdminHomePage() {
         ))}
       </div>
 
-      {/* Client list with performance */}
+      {/* Client list */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Clients</h2>
 
         {clientStats.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 border border-dashed border-border rounded-lg text-center">
             <p className="text-sm font-medium text-foreground">No clients yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Add your first client to get started.
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Add your first client to get started.</p>
             <Link href="/admin/clients/new" className={cn(buttonVariants(), 'mt-4')}>
               Add client
             </Link>
@@ -155,15 +142,15 @@ export default async function AdminHomePage() {
                   <TableHead className="font-medium">Completed</TableHead>
                   <TableHead className="font-medium">Conv. rate</TableHead>
                   <TableHead className="font-medium">Commission owed</TableHead>
-                  <TableHead className="w-12" />
+                  <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {clientStats.map((client) => (
-                  <TableRow key={client.id} className="hover:bg-muted/20 transition-colors">
+                  <TableRow key={client.id} className="hover:bg-muted/20 transition-colors group">
                     <TableCell>
-                      <div>
-                        <p className="font-medium text-foreground">
+                      <Link href={`/admin/clients/${client.id}`} className="block">
+                        <p className="font-medium text-foreground group-hover:text-primary transition-colors">
                           {client.business_name || client.name}
                         </p>
                         {client.activeCampaigns > 0 && (
@@ -171,7 +158,7 @@ export default async function AdminHomePage() {
                             {client.activeCampaigns} active
                           </Badge>
                         )}
-                      </div>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{client.campaigns}</TableCell>
                     <TableCell className="text-muted-foreground">{client.leads}</TableCell>
@@ -182,10 +169,13 @@ export default async function AdminHomePage() {
                     <TableCell className="font-mono text-sm text-foreground">
                       ${(client.commissionOwed / 100).toFixed(2)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="pr-2">
                       <Link
                         href={`/admin/clients/${client.id}`}
-                        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                        className={cn(
+                          buttonVariants({ variant: 'ghost', size: 'sm' }),
+                          'w-full flex items-center justify-center gap-1 text-muted-foreground'
+                        )}
                       >
                         <ArrowRight className="w-4 h-4" />
                       </Link>

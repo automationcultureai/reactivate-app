@@ -13,12 +13,14 @@ import {
   Settings,
   Zap,
   LogOut,
+  CalendarDays,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, exact: true },
   { label: 'Clients', href: '/admin/clients', icon: Users, exact: false },
+  { label: 'Bookings', href: '/admin/bookings', icon: CalendarDays, exact: false },
   { label: 'Templates', href: '/admin/templates', icon: FileText, exact: false },
   { label: 'Disputes', href: '/admin/disputes', icon: AlertCircle, exact: false },
   { label: 'Billing', href: '/admin/billing', icon: CreditCard, exact: false },

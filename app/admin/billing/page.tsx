@@ -1,16 +1,9 @@
 import { getSupabaseClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/lib/button-variants'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Separator } from '@/components/ui/separator'
-import { BillingStatusSelect, type InvoiceStatus } from '@/components/admin/BillingStatusSelect'
+import { BillingCampaignTable } from '@/components/admin/BillingCampaignTable'
+import { type InvoiceStatus } from '@/components/admin/BillingStatusSelect'
 import { Download } from 'lucide-react'
 
 export default async function BillingPage() {
@@ -242,38 +235,13 @@ export default async function BillingPage() {
 
               {/* Per-campaign booking tables */}
               {campaignList.map((campaign) => (
-                <div key={campaign.campaignId} className="rounded-lg border border-border overflow-hidden">
-                  <div className="px-4 py-2 bg-muted/20 border-b border-border flex items-center justify-between">
-                    <p className="text-xs font-semibold text-foreground">{campaign.campaignName}</p>
-                    <p className="text-xs font-mono text-muted-foreground">{fmt(campaign.total)}</p>
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/10">
-                        <TableHead className="font-medium">Lead</TableHead>
-                        <TableHead className="font-medium">Appointment</TableHead>
-                        <TableHead className="font-medium">Completed</TableHead>
-                        <TableHead className="font-medium">By</TableHead>
-                        <TableHead className="font-medium text-right">Commission</TableHead>
-                        <TableHead className="font-medium w-44">Invoice status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {campaign.bookings.map((b) => (
-                        <TableRow key={b.id} className="hover:bg-muted/10">
-                          <TableCell className="text-foreground text-sm">{b.leadName}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
-                          <TableCell className="text-right font-mono text-sm font-medium">{fmt(b.commission_owed)}</TableCell>
-                          <TableCell>
-                            <BillingStatusSelect bookingId={b.id} initialStatus={b.invoiceStatus} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <BillingCampaignTable
+                  key={campaign.campaignId}
+                  campaignId={campaign.campaignId}
+                  campaignName={campaign.campaignName}
+                  bookings={campaign.bookings}
+                  total={campaign.total}
+                />
               ))}
 
               <Separator />

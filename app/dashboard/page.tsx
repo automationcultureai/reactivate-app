@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { getSupabaseClient } from '@/lib/supabase'
 import { DashboardNav } from '@/components/dashboard/DashboardNav'
-import { DashboardView } from '@/components/dashboard/DashboardView'
+import { DashboardStats } from '@/components/dashboard/DashboardStats'
 import { DashboardBookings } from '@/components/dashboard/DashboardBookings'
 import { DashboardLeads } from '@/components/dashboard/DashboardLeads'
 import { Separator } from '@/components/ui/separator'
@@ -15,7 +15,6 @@ export default async function DashboardPage() {
 
   if (!userId) redirect('/sign-in')
 
-  // Client dashboard requires an active Clerk org
   if (!orgId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -32,7 +31,6 @@ export default async function DashboardPage() {
 
   const supabase = getSupabaseClient()
 
-  // Look up client by Clerk org ID — this is the tenancy boundary
   const { data: client } = await supabase
     .from('clients')
     .select('id, name, business_name')
@@ -54,7 +52,6 @@ export default async function DashboardPage() {
 
   const clientDisplayName = client.business_name || client.name
 
-  // Leads — name + status + date only (NO email/phone — privacy)
   const { data: leads } = await supabase
     .from('leads')
     .select('id, name, status, created_at')
@@ -62,7 +59,6 @@ export default async function DashboardPage() {
     .not('status', 'in', '(deleted)')
     .order('created_at', { ascending: false })
 
-  // Bookings — join to get lead name
   const { data: rawBookings } = await supabase
     .from('bookings')
     .select('*, leads(name)')
@@ -74,7 +70,6 @@ export default async function DashboardPage() {
     leadName: (b.leads as unknown as { name: string } | null)?.name ?? 'Unknown',
   }))
 
-  // Compute aggregate stats across all campaigns for this client
   const totalLeads = (leads ?? []).length
   const allLeadIds = (leads ?? []).map((l) => l.id)
 
@@ -99,7 +94,6 @@ export default async function DashboardPage() {
     openedCount = opened ?? 0
   }
 
-  // Fetch the most recent sent email per lead (for "Email N sent" display)
   const { data: sentEmails } = allLeadIds.length > 0
     ? await supabase
         .from('emails')
@@ -109,7 +103,6 @@ export default async function DashboardPage() {
         .order('sequence_number', { ascending: false })
     : { data: [] }
 
-  // Build map: lead_id → highest sequence_number sent
   const latestEmailByLeadMap = new Map<string, { sequence_number: number; sent_at: string }>()
   for (const e of sentEmails ?? []) {
     if (!latestEmailByLeadMap.has(e.lead_id)) {
@@ -118,17 +111,15 @@ export default async function DashboardPage() {
   }
   const latestEmailByLead = Object.fromEntries(latestEmailByLeadMap)
 
-  // Fetch non-email events (clicked, booked, completed etc.) for "last action" display
   const { data: recentEvents } = allLeadIds.length > 0
     ? await supabase
         .from('lead_events')
         .select('lead_id, event_type, created_at')
         .in('lead_id', allLeadIds)
-        .not('event_type', 'in', '(email_sent)')   // exclude email_sent — we use the emails table instead
+        .not('event_type', 'in', '(email_sent)')
         .order('created_at', { ascending: false })
     : { data: [] }
 
-  // Build map: lead_id → most recent non-email event
   const lastEventByLeadMap = new Map<string, { event_type: string; created_at: string }>()
   for (const event of recentEvents ?? []) {
     if (!lastEventByLeadMap.has(event.lead_id)) {
@@ -144,29 +135,6 @@ export default async function DashboardPage() {
   const completedCount = (leads ?? []).filter((l) => l.status === 'completed').length
   const bookedCount = rawBookedCount + completedCount
 
-  // Compute bookings-by-month for chart (last 6 months)
-  const bookingsByMonth = (() => {
-    const months: { month: string; bookings: number; completed: number }[] = []
-    const now = new Date()
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const label = d.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
-      const y = d.getFullYear()
-      const m = d.getMonth()
-      const monthBookings = (bookings ?? []).filter((b) => {
-        const bd = new Date(b.scheduled_at)
-        return bd.getFullYear() === y && bd.getMonth() === m
-      })
-      months.push({
-        month: label,
-        bookings: monthBookings.length,
-        completed: monthBookings.filter((b) => b.status === 'completed').length,
-      })
-    }
-    return months
-  })()
-
-  // All disputes for this client
   const { data: allDisputes } = await supabase
     .from('commission_disputes')
     .select('booking_id, status, admin_notes, reason')
@@ -176,7 +144,6 @@ export default async function DashboardPage() {
     (allDisputes ?? []).map(d => [d.booking_id, d])
   )
 
-  // Total spend = sum of commission_owed for completed bookings for this client
   const { data: spendData } = await supabase
     .from('bookings')
     .select('commission_owed')
@@ -190,7 +157,6 @@ export default async function DashboardPage() {
       <DashboardNav clientName={clientDisplayName} />
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
-        {/* Page header */}
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -198,8 +164,7 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats / Charts toggle */}
-        <DashboardView
+        <DashboardStats
           totalLeads={totalLeads}
           bookedCount={bookedCount}
           emailsSent={emailsSent}
@@ -207,12 +172,10 @@ export default async function DashboardPage() {
           clickedCount={clickedCount}
           completedCount={completedCount}
           totalSpend={totalSpend}
-          bookingsByMonth={bookingsByMonth}
         />
 
         <Separator />
 
-        {/* Bookings with complete + dispute actions */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-foreground">
             Bookings
@@ -227,7 +190,6 @@ export default async function DashboardPage() {
 
         <Separator />
 
-        {/* Lead list — no email/phone shown */}
         <div className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
