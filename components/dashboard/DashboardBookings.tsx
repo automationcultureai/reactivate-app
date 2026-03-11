@@ -215,8 +215,10 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                           }}
                           disabled={isWorking}
                         >
-                          <SelectTrigger className="h-7 text-xs w-40">
-                            <SelectValue />
+                          <SelectTrigger className="h-7 text-xs w-44">
+                            <span className="flex flex-1 text-left">
+                              {getAction(booking.id) === 'complete' ? 'Mark complete' : 'Booking cancelled'}
+                            </span>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="complete">Mark complete</SelectItem>

@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { getSupabaseClient } from '@/lib/supabase'
 import { DashboardNav } from '@/components/dashboard/DashboardNav'
-import { DashboardStats } from '@/components/dashboard/DashboardStats'
+import { DashboardView } from '@/components/dashboard/DashboardView'
 import { DashboardBookings } from '@/components/dashboard/DashboardBookings'
 import { DashboardLeads } from '@/components/dashboard/DashboardLeads'
 import { Separator } from '@/components/ui/separator'
@@ -144,6 +144,28 @@ export default async function DashboardPage() {
   const completedCount = (leads ?? []).filter((l) => l.status === 'completed').length
   const bookedCount = rawBookedCount + completedCount
 
+  // Compute bookings-by-month for chart (last 6 months)
+  const bookingsByMonth = (() => {
+    const months: { month: string; bookings: number; completed: number }[] = []
+    const now = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const label = d.toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
+      const y = d.getFullYear()
+      const m = d.getMonth()
+      const monthBookings = (bookings ?? []).filter((b) => {
+        const bd = new Date(b.scheduled_at)
+        return bd.getFullYear() === y && bd.getMonth() === m
+      })
+      months.push({
+        month: label,
+        bookings: monthBookings.length,
+        completed: monthBookings.filter((b) => b.status === 'completed').length,
+      })
+    }
+    return months
+  })()
+
   // All disputes for this client
   const { data: allDisputes } = await supabase
     .from('commission_disputes')
@@ -176,8 +198,8 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        {/* Stats overview */}
-        <DashboardStats
+        {/* Stats / Charts toggle */}
+        <DashboardView
           totalLeads={totalLeads}
           bookedCount={bookedCount}
           emailsSent={emailsSent}
@@ -185,6 +207,7 @@ export default async function DashboardPage() {
           clickedCount={clickedCount}
           completedCount={completedCount}
           totalSpend={totalSpend}
+          bookingsByMonth={bookingsByMonth}
         />
 
         <Separator />
