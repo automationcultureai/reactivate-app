@@ -3,6 +3,7 @@
 import { SignOutButton } from '@clerk/nextjs'
 import { Zap, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface DashboardNavProps {
   clientName: string
@@ -20,12 +21,15 @@ export function DashboardNav({ clientName }: DashboardNavProps) {
           <span className="text-muted-foreground/30 text-xs">/</span>
           <span className="text-sm font-medium text-foreground">{clientName}</span>
         </div>
-        <SignOutButton redirectUrl="/sign-in">
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
-            <LogOut className="w-3.5 h-3.5 mr-1.5" />
-            Sign out
-          </Button>
-        </SignOutButton>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <SignOutButton redirectUrl="/sign-in">
+            <Button variant="ghost" size="sm" className="text-muted-foreground">
+              <LogOut className="w-3.5 h-3.5 mr-1.5" />
+              Sign out
+            </Button>
+          </SignOutButton>
+        </div>
       </div>
     </header>
   )

@@ -1,13 +1,14 @@
-interface StatCardProps {
-  label: string
-  value: string
-  sub?: string
-}
+import { Info } from 'lucide-react'
 
-function StatCard({ label, value, sub }: StatCardProps) {
+function StatCard({ label, value, sub, tooltip }: { label: string; value: string; sub?: string; tooltip: string }) {
   return (
     <div className="p-4 rounded-lg border border-border bg-card">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-start justify-between gap-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <span title={tooltip} className="shrink-0 mt-0.5 cursor-help">
+          <Info className="w-3 h-3 text-muted-foreground/40" />
+        </span>
+      </div>
       <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
@@ -21,42 +22,58 @@ function pct(num: number, denom: number): string {
 
 interface DashboardStatsProps {
   totalLeads: number
+  bookedCount: number
   emailsSent: number
   openedCount: number
   clickedCount: number
-  bookedCount: number
   completedCount: number
 }
 
 export function DashboardStats({
   totalLeads,
+  bookedCount,
   emailsSent,
   openedCount,
   clickedCount,
-  bookedCount,
   completedCount,
 }: DashboardStatsProps) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
       <StatCard
-        label="Open rate"
-        value={pct(openedCount, emailsSent)}
-        sub={`${openedCount} of ${emailsSent} emails`}
+        label="Total leads"
+        value={String(totalLeads)}
+        sub="across all campaigns"
+        tooltip="Total number of leads uploaded across all campaigns for this client."
       />
       <StatCard
-        label="Click rate"
+        label="Leads booked"
+        value={String(bookedCount)}
+        sub={`${completedCount} completed`}
+        tooltip="Number of leads who have booked or completed an appointment."
+      />
+      <StatCard
+        label="Email open rate"
+        value={pct(openedCount, emailsSent)}
+        sub={`${openedCount} of ${emailsSent} emails`}
+        tooltip="Percentage of sent emails that were opened. Calculated as: emails opened ÷ emails sent. Note: Apple Mail Privacy Protection may inflate this figure."
+      />
+      <StatCard
+        label="Click through rate"
         value={pct(clickedCount, emailsSent)}
         sub={`${clickedCount} leads clicked`}
+        tooltip="Percentage of emailed leads who clicked the booking link. Calculated as: leads who clicked ÷ leads emailed."
       />
       <StatCard
         label="Booking rate"
-        value={pct(bookedCount + completedCount, totalLeads)}
-        sub={`${bookedCount + completedCount} bookings total`}
+        value={pct(bookedCount, totalLeads)}
+        sub={`${bookedCount} of ${totalLeads} leads`}
+        tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
       />
       <StatCard
         label="Completion rate"
-        value={pct(completedCount, bookedCount + completedCount)}
+        value={pct(completedCount, bookedCount)}
         sub={`${completedCount} jobs completed`}
+        tooltip="Percentage of booked appointments that were completed. Calculated as: jobs completed ÷ leads booked."
       />
     </div>
   )

@@ -33,11 +33,14 @@ const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
   disputed: { label: 'Disputed', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
 }
 
+const RESOLVED_BADGE = { label: 'Resolved', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' }
+
 interface DashboardBookingsProps {
   bookings: (Booking & { leadName: string })[]
+  openDisputeBookingIds: Set<string>
 }
 
-export function DashboardBookings({ bookings: initialBookings }: DashboardBookingsProps) {
+export function DashboardBookings({ bookings: initialBookings, openDisputeBookingIds }: DashboardBookingsProps) {
   const [bookings, setBookings] = useState(initialBookings)
   const [completing, setCompleting] = useState<string | null>(null)
   const [disputeTarget, setDisputeTarget] = useState<string | null>(null)
@@ -113,12 +116,16 @@ export function DashboardBookings({ bookings: initialBookings }: DashboardBookin
               <TableHead className="font-medium">Lead</TableHead>
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="font-medium">Status</TableHead>
-              <TableHead className="w-48" />
+              <TableHead className="w-48 font-medium">Manage</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {bookings.map((booking) => {
-              const badge = STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-muted text-muted-foreground' }
+              const isOpenDispute = openDisputeBookingIds.has(booking.id)
+              const badge =
+                booking.status === 'disputed' && !isOpenDispute
+                  ? RESOLVED_BADGE
+                  : (STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-muted text-muted-foreground' })
               const isCompleting = completing === booking.id
 
               return (
@@ -151,7 +158,7 @@ export function DashboardBookings({ bookings: initialBookings }: DashboardBookin
                           Mark complete
                         </Button>
                       )}
-                      {booking.status === 'completed' && (
+                      {(booking.status === 'completed' || booking.status === 'disputed') && !isOpenDispute && (
                         <Button
                           size="sm"
                           variant="ghost"

@@ -14,6 +14,7 @@ import {
   Zap,
   LogOut,
 } from 'lucide-react'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 const navItems = [
   { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, exact: true },
@@ -77,12 +78,15 @@ export function AdminSidebar() {
             <p className="text-xs text-sidebar-foreground/40">Admin</p>
           </div>
         )}
-        <SignOutButton redirectUrl="/sign-in">
-          <button className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
-            <LogOut className="w-4 h-4 shrink-0" />
-            Sign out
-          </button>
-        </SignOutButton>
+        <div className="flex items-center gap-2">
+          <SignOutButton redirectUrl="/sign-in">
+            <button className="flex flex-1 items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
+              <LogOut className="w-4 h-4 shrink-0" />
+              Sign out
+            </button>
+          </SignOutButton>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
   )

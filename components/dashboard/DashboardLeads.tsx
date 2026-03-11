@@ -12,13 +12,13 @@ import { cn } from '@/lib/utils'
 import { Users } from 'lucide-react'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
-  pending: { label: 'Pending', classes: 'bg-muted text-muted-foreground' },
+  pending: { label: 'Contact made', classes: 'bg-muted text-muted-foreground' },
   emailed: { label: 'Contacted', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
   sms_sent: { label: 'Contacted', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
   clicked: { label: 'Interested', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
   booked: { label: 'Booked', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' },
   completed: { label: 'Completed', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  unsubscribed: { label: 'Unsubscribed', classes: 'bg-muted text-muted-foreground' },
+  unsubscribed: { label: 'Opted out', classes: 'bg-muted text-muted-foreground' },
   cancelled: { label: 'Cancelled', classes: 'bg-muted text-muted-foreground' },
   send_failed: { label: 'Send failed', classes: 'bg-destructive/10 text-destructive' },
 }

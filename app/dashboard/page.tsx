@@ -102,8 +102,17 @@ export default async function DashboardPage() {
   const clickedCount = (leads ?? []).filter((l) =>
     ['clicked', 'booked', 'completed'].includes(l.status)
   ).length
-  const bookedCount = (leads ?? []).filter((l) => l.status === 'booked').length
+  const rawBookedCount = (leads ?? []).filter((l) => l.status === 'booked').length
   const completedCount = (leads ?? []).filter((l) => l.status === 'completed').length
+  const bookedCount = rawBookedCount + completedCount
+
+  // Open disputes for this client
+  const { data: openDisputes } = await supabase
+    .from('commission_disputes')
+    .select('booking_id')
+    .eq('client_id', client.id)
+    .eq('status', 'open')
+  const openDisputeBookingIds = new Set((openDisputes ?? []).map((d) => d.booking_id))
 
   return (
     <>
@@ -121,10 +130,10 @@ export default async function DashboardPage() {
         {/* Stats overview */}
         <DashboardStats
           totalLeads={totalLeads}
+          bookedCount={bookedCount}
           emailsSent={emailsSent}
           openedCount={openedCount}
           clickedCount={clickedCount}
-          bookedCount={bookedCount}
           completedCount={completedCount}
         />
 
@@ -140,7 +149,7 @@ export default async function DashboardPage() {
               </span>
             )}
           </h2>
-          <DashboardBookings bookings={bookings} />
+          <DashboardBookings bookings={bookings} openDisputeBookingIds={openDisputeBookingIds} />
         </div>
 
         <Separator />
