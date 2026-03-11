@@ -1,14 +1,21 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
-interface BillingMonthFilterProps {
-  selectedMonth: string | null  // 'YYYY-MM' or null = all time
+interface Props {
+  selectedMonth: string | null   // 'YYYY-MM' or null
+  customFrom: string | null      // 'YYYY-MM-DD' or null
+  customTo: string | null        // 'YYYY-MM-DD' or null
 }
 
-export function BillingMonthFilter({ selectedMonth }: BillingMonthFilterProps) {
+export function BillingMonthFilter({ selectedMonth, customFrom, customTo }: Props) {
   const router = useRouter()
+
+  const [fromInput, setFromInput] = useState(customFrom ?? '')
+  const [toInput, setToInput]     = useState(customTo ?? '')
+  const [error, setError]         = useState('')
 
   // Build last 12 months newest-first
   const months: { value: string; label: string }[] = []
@@ -20,38 +27,106 @@ export function BillingMonthFilter({ selectedMonth }: BillingMonthFilterProps) {
     months.push({ value, label })
   }
 
-  function select(month: string | null) {
+  function selectMonth(month: string | null) {
+    setFromInput('')
+    setToInput('')
+    setError('')
     router.push(month ? `/admin/billing?month=${month}` : '/admin/billing')
   }
 
+  function applyCustomRange() {
+    setError('')
+    if (!fromInput || !toInput) {
+      setError('Please set both a start and end date.')
+      return
+    }
+    if (new Date(fromInput) > new Date(toInput)) {
+      setError('Start date must be before end date.')
+      return
+    }
+    router.push(`/admin/billing?from=${fromInput}&to=${toInput}`)
+  }
+
+  function clearCustomRange() {
+    setFromInput('')
+    setToInput('')
+    setError('')
+    router.push('/admin/billing')
+  }
+
+  const isCustomActive = !!(customFrom && customTo)
+
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-muted-foreground mr-1">Filter by month:</span>
-      <button
-        onClick={() => select(null)}
-        className={cn(
-          'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-          !selectedMonth
-            ? 'bg-primary text-primary-foreground border-primary'
-            : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
-        )}
-      >
-        All time
-      </button>
-      {months.map(({ value, label }) => (
+    <div className="space-y-3">
+      {/* Month pills */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-muted-foreground mr-1">Month:</span>
         <button
-          key={value}
-          onClick={() => select(value)}
+          onClick={() => selectMonth(null)}
           className={cn(
             'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-            selectedMonth === value
+            !selectedMonth && !isCustomActive
               ? 'bg-primary text-primary-foreground border-primary'
               : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
           )}
         >
-          {label}
+          All time
         </button>
-      ))}
+        {months.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => selectMonth(value)}
+            className={cn(
+              'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+              selectedMonth === value && !isCustomActive
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom date range */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-muted-foreground mr-1">Custom range:</span>
+        <input
+          type="date"
+          value={fromInput}
+          onChange={(e) => { setFromInput(e.target.value); setError('') }}
+          className={cn(
+            'h-7 rounded-md border px-2 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring',
+            isCustomActive && customFrom === fromInput ? 'border-primary' : 'border-border'
+          )}
+        />
+        <span className="text-xs text-muted-foreground">to</span>
+        <input
+          type="date"
+          value={toInput}
+          onChange={(e) => { setToInput(e.target.value); setError('') }}
+          min={fromInput || undefined}
+          className={cn(
+            'h-7 rounded-md border px-2 text-xs bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring',
+            isCustomActive && customTo === toInput ? 'border-primary' : 'border-border'
+          )}
+        />
+        <button
+          onClick={applyCustomRange}
+          className="h-7 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+        >
+          Apply
+        </button>
+        {isCustomActive && (
+          <button
+            onClick={clearCustomRange}
+            className="h-7 px-3 rounded-md text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+          >
+            Clear
+          </button>
+        )}
+        {error && <span className="text-xs text-destructive">{error}</span>}
+      </div>
     </div>
   )
 }

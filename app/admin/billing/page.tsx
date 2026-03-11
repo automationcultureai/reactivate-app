@@ -10,17 +10,25 @@ import { Download } from 'lucide-react'
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>
+  searchParams: Promise<{ month?: string; from?: string; to?: string }>
 }) {
-  const { month } = await searchParams
+  const { month, from, to } = await searchParams
 
   const selectedMonth = month && /^\d{4}-\d{2}$/.test(month) ? month : null
+  const customFrom = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : null
+  const customTo   = to   && /^\d{4}-\d{2}-\d{2}$/.test(to)   ? to   : null
 
   let dateStart: string | null = null
   let dateEnd: string | null = null
   let selectedMonthLabel: string | null = null
 
-  if (selectedMonth) {
+  if (customFrom && customTo) {
+    dateStart = new Date(customFrom).toISOString()
+    dateEnd   = new Date(`${customTo}T23:59:59.999`).toISOString()
+    const fmtDate = (s: string) =>
+      new Date(s).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+    selectedMonthLabel = `${fmtDate(customFrom)} – ${fmtDate(customTo)}`
+  } else if (selectedMonth) {
     const [y, m] = selectedMonth.split('-').map(Number)
     dateStart = new Date(y, m - 1, 1).toISOString()
     dateEnd   = new Date(y, m, 0, 23, 59, 59, 999).toISOString()
@@ -47,7 +55,7 @@ export default async function BillingPage({
   let rawBookings: any[] | null = null
   let fetchError = null
 
-  if (selectedMonth && dateStart && dateEnd) {
+  if ((selectedMonth || (customFrom && customTo)) && dateStart && dateEnd) {
     const { data, error } = await supabase
       .from('bookings')
       .select(baseSelect)
@@ -172,7 +180,7 @@ export default async function BillingPage({
         </a>
       </div>
 
-      <BillingMonthFilter selectedMonth={selectedMonth} />
+      <BillingMonthFilter selectedMonth={selectedMonth} customFrom={customFrom} customTo={customTo} />
 
       <div className="grid grid-cols-4 gap-4">
         {[
