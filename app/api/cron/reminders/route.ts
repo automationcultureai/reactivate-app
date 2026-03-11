@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
 import { sendBookingReminder } from '@/lib/gmail'
+import { sendAdminAlert } from '@/lib/alert'
 
 export const maxDuration = 300
 
@@ -104,6 +105,17 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error(`[cron/reminders] Failed to send reminder for booking ${booking.id}:`, err)
       failed++
+    }
+  }
+
+  if (failed > 0) {
+    try {
+      await sendAdminAlert(
+        `Reminders cron: ${failed} failure${failed !== 1 ? 's' : ''}`,
+        `Reminders cron completed with failures.\n\nSent: ${sent}\nFailed: ${failed}\n\nCheck server logs for details.`
+      )
+    } catch (alertErr) {
+      console.error('[cron/reminders] Failed to send admin alert:', alertErr)
     }
   }
 

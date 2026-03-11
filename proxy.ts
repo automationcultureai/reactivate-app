@@ -1,6 +1,48 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
+// ---------------------------------------------------------------------------
+// In-memory rate limiter (best-effort — does not share state across instances)
+// ---------------------------------------------------------------------------
+type RateLimitEntry = { count: number; resetAt: number }
+const rateLimitMap = new Map<string, RateLimitEntry>()
+let rateLimitCallCount = 0
+
+const RATE_LIMITS: { prefix: string; max: number; windowMs: number }[] = [
+  { prefix: '/book', max: 20, windowMs: 60_000 },
+  { prefix: '/api/leads', max: 20, windowMs: 60_000 },
+  { prefix: '/unsubscribe', max: 10, windowMs: 60_000 },
+  { prefix: '/api/unsubscribe', max: 10, windowMs: 60_000 },
+]
+
+function checkRateLimit(ip: string, pathname: string): boolean {
+  // Periodically clean up expired entries (every 100 calls)
+  rateLimitCallCount++
+  if (rateLimitCallCount % 100 === 0) {
+    const now = Date.now()
+    for (const [key, entry] of rateLimitMap.entries()) {
+      if (entry.resetAt <= now) rateLimitMap.delete(key)
+    }
+  }
+
+  const limit = RATE_LIMITS.find((l) => pathname.startsWith(l.prefix))
+  if (!limit) return true // Not a rate-limited path — allow
+
+  const key = `${ip}:${limit.prefix}`
+  const now = Date.now()
+  const entry = rateLimitMap.get(key)
+
+  if (!entry || entry.resetAt <= now) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + limit.windowMs })
+    return true
+  }
+
+  entry.count++
+  if (entry.count > limit.max) return false // Over limit
+
+  return true
+}
+
 // Routes that never require authentication
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
@@ -23,6 +65,14 @@ const isPublicRoute = createRouteMatcher([
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
+  // Rate limit public booking and unsubscribe paths
+  const pathname = req.nextUrl.pathname
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!checkRateLimit(ip, pathname)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   // Always allow public routes through
   if (isPublicRoute(req)) {
     return NextResponse.next()

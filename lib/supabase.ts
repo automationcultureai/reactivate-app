@@ -1,5 +1,19 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
+// ---------------------------------------------------------------------------
+// Security note on env var naming:
+//
+// NEXT_PUBLIC_SUPABASE_URL — intentionally public. This is the Supabase project
+//   URL, not a secret. It is safe to expose in client bundles.
+//
+// NEXT_PUBLIC_SUPABASE_ANON_KEY — intentionally public. The anon key is a
+//   publishable key governed by Supabase Row Level Security (RLS) policies.
+//   It grants no elevated privileges on its own.
+//
+// SUPABASE_SERVICE_ROLE_KEY — server-only secret. This key bypasses RLS and
+//   must NEVER have a NEXT_PUBLIC_ prefix or appear in client-side code.
+// ---------------------------------------------------------------------------
+
 /**
  * Returns a Supabase client using the service role key.
  * Use this in all server-side API routes.

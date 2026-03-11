@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
 import { sendEmail, sendDelay } from '@/lib/gmail'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
+import { sendAdminAlert } from '@/lib/alert'
 import type { Email, Lead, SmsMessage } from '@/lib/supabase'
 
 // Allow up to 300 seconds — cron processes all active campaigns in one run
@@ -275,6 +276,17 @@ export async function POST(req: NextRequest) {
       if (remainingToday > 0) {
         await sendDelay()
       }
+    }
+  }
+
+  if (totalFailed > 0) {
+    try {
+      await sendAdminAlert(
+        `Follow-up cron: ${totalFailed} failure${totalFailed !== 1 ? 's' : ''}`,
+        `Follow-up cron completed with failures.\n\nSent: ${totalSent}\nFailed: ${totalFailed}\n\nCheck send_failures table for details.`
+      )
+    } catch (alertErr) {
+      console.error('[cron/follow-up] Failed to send admin alert:', alertErr)
     }
   }
 

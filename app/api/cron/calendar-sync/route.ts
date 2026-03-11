@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
 import { checkBookingStatus } from '@/lib/calendar'
 import { sendEmail } from '@/lib/gmail'
+import { sendAdminAlert } from '@/lib/alert'
 
 export const maxDuration = 300
 
@@ -175,6 +176,17 @@ export async function POST(req: NextRequest) {
         `[cron/calendar-sync] Re-engagement email failed for lead ${lead.id}:`,
         err
       )
+    }
+  }
+
+  if (failed > 0) {
+    try {
+      await sendAdminAlert(
+        `Calendar sync cron: ${failed} failure${failed !== 1 ? 's' : ''}`,
+        `Calendar sync cron completed with failures.\n\nChecked: ${bookings.length}\nCancelled: ${cancelled}\nFailed: ${failed}\nRe-engagement sent: ${reengagementSent}\n\nCheck server logs for details.`
+      )
+    } catch (alertErr) {
+      console.error('[cron/calendar-sync] Failed to send admin alert:', alertErr)
     }
   }
 
