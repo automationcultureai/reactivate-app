@@ -112,6 +112,11 @@ export function CampaignLeadList({
     body: string
   } | null>(null)
   const [savingEmail, setSavingEmail] = useState(false)
+  const [previewEmail, setPreviewEmail] = useState<{
+    label: string
+    subject: string
+    body: string
+  } | null>(null)
 
   const canSendNext = campaignStatus === 'active' || campaignStatus === 'paused'
   const canEditEmails = ['ready', 'active', 'paused'].includes(campaignStatus)
@@ -471,6 +476,13 @@ export function CampaignLeadList({
                                             {!email.sent_at && (
                                               <span className="text-muted-foreground/60">Not sent yet</span>
                                             )}
+                                            <button
+                                              onClick={() => setPreviewEmail({ label: SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number}`, subject: email.subject, body: email.body })}
+                                              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                                              title="Preview full email"
+                                            >
+                                              View
+                                            </button>
                                             {canEditEmails && (
                                               <button
                                                 onClick={() => setEditingEmail({ emailId: email.id, subject: email.subject, body: email.body })}
@@ -599,6 +611,26 @@ export function CampaignLeadList({
               {savingEmail && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
               Save changes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email preview dialog */}
+      <Dialog open={previewEmail !== null} onOpenChange={(open) => !open && setPreviewEmail(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{previewEmail?.label}</DialogTitle>
+            <DialogDescription className="font-medium text-foreground">
+              {previewEmail?.subject}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border border-border bg-muted/20 px-4 py-3">
+            <p className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+              {previewEmail?.body}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewEmail(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
