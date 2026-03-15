@@ -77,18 +77,36 @@ export async function POST(
       )
     }
 
-    // 5. Fetch pending leads (status: "pending") for this campaign
+    // 5. Fetch wave 1 pending leads for the initial send.
+    // Wave 2 and wave 3 leads are sent by the follow-up cron on days 3-4 and 5-6.
     const { data: leads } = await supabase
       .from('leads')
-      .select('id, name, email, phone, booking_token, send_failure_count, email_opt_out, sms_opt_out, status')
+      .select('id, name, email, phone, booking_token, send_failure_count, email_opt_out, sms_opt_out, status, rfm_wave')
       .eq('campaign_id', campaignId)
       .eq('status', 'pending')
+      .eq('rfm_wave', 1)
       .not('status', 'in', '(deleted,unsubscribed)')
 
+    // Count wave 2/3 leads that will be picked up by the follow-up cron
+    const { count: deferredCount } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending')
+      .in('rfm_wave', [2, 3])
+
+    const activatedAt = new Date().toISOString()
+
     if (!leads || leads.length === 0) {
-      // No pending leads — update campaign to active anyway
-      await supabase.from('campaigns').update({ status: 'active' }).eq('id', campaignId)
-      return NextResponse.json({ message: 'No pending leads — campaign set to active', sent: 0, queued: 0 })
+      await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
+      const deferred = deferredCount ?? 0
+      return NextResponse.json({
+        message: deferred > 0
+          ? `No wave 1 leads — ${deferred} lead${deferred !== 1 ? 's' : ''} deferred to follow-up cron (wave 2/3)`
+          : 'No pending leads — campaign set to active',
+        sent: 0,
+        queued: deferred,
+      })
     }
 
     // 6. Respect daily limit — process up to remainingToday leads
@@ -236,7 +254,7 @@ export async function POST(
     }
 
     // 8. Update campaign to "active" (even with partial sends)
-    await supabase.from('campaigns').update({ status: 'active' }).eq('id', campaignId)
+    await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
 
     return NextResponse.json({
       success: true,

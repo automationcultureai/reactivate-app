@@ -10,6 +10,7 @@ export const maxDuration = 300
 
 // Timing thresholds
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
@@ -88,11 +89,11 @@ export async function POST(req: NextRequest) {
     const hasSms = campaign.channel === 'sms' || campaign.channel === 'both'
 
     // Fetch leads eligible for follow-up or initial send
-    // pending: Email 1 / SMS 1 not yet sent (campaign activated, initial send timed out)
+    // pending: Email 1 / SMS 1 not yet sent (wave 2/3 deferred, or wave 1 that timed out)
     // emailed/sms_sent: Email 2/3 or SMS 2/3; clicked: Email 4 / SMS 4
     const { data: leads } = await supabase
       .from('leads')
-      .select('id, name, email, phone, booking_token, status, email_opt_out, sms_opt_out, send_failure_count')
+      .select('id, name, email, phone, booking_token, status, email_opt_out, sms_opt_out, send_failure_count, rfm_wave')
       .eq('campaign_id', campaign.id)
       .in('status', ['pending', 'emailed', 'sms_sent', 'clicked'])
 
@@ -166,11 +167,23 @@ export async function POST(req: NextRequest) {
       let emailToSend: Email | undefined
       let sequenceNumber: number | undefined
 
-      // Pending leads: Email 1 / SMS 1 never sent (initial send timed out)
+      // Pending leads: Email 1 / SMS 1 not yet sent.
+      // Wave 1: send on activation (days 1-2) — also covers any that timed out on initial send.
+      // Wave 2: send only if campaign activated >= 3 days ago.
+      // Wave 3: send only if campaign activated >= 5 days ago.
       if (lead.status === 'pending') {
         if (email1 && !email1.sent_at) {
-          emailToSend = email1
-          sequenceNumber = 1
+          const wave = (lead as { rfm_wave?: number }).rfm_wave ?? 1
+          const activatedAt = (campaign as { activated_at?: string | null }).activated_at
+          const msSinceActivation = activatedAt ? now - new Date(activatedAt).getTime() : Infinity
+          const waveReady =
+            wave === 1 ||
+            (wave === 2 && msSinceActivation >= THREE_DAYS_MS) ||
+            (wave === 3 && msSinceActivation >= FIVE_DAYS_MS)
+          if (waveReady) {
+            emailToSend = email1
+            sequenceNumber = 1
+          }
         }
       }
 

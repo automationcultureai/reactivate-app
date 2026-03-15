@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
+import { scoreAndWaveLeads } from '@/lib/rfm'
 
 const leadSchema = z.object({
   name: z.string().min(1).max(200),
@@ -12,6 +13,10 @@ const leadSchema = z.object({
   service_type: z.string().max(200).optional().nullable(),
   purchase_value: z.string().max(100).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  // RFM scoring inputs — optional, used for wave prioritisation
+  last_purchase_date: z.string().max(100).optional().nullable(),
+  purchase_count: z.string().max(50).optional().nullable(),
+  lifetime_value: z.string().max(50).optional().nullable(),
 })
 
 const createCampaignSchema = z.object({
@@ -169,6 +174,10 @@ export async function POST(req: NextRequest) {
       service_type: lead.service_type ?? null,
       purchase_value: lead.purchase_value ?? null,
       notes: lead.notes ?? null,
+      // RFM inputs — stored as-is from CSV; scorer converts and sets rfm_* columns
+      last_purchase_date: lead.last_purchase_date ?? null,
+      purchase_count: lead.purchase_count ? (parseInt(lead.purchase_count, 10) || null) : null,
+      lifetime_value: lead.lifetime_value ? (parseFloat(lead.lifetime_value) || null) : null,
     }))
 
     const { error: leadsError } = await supabase.from('leads').insert(leadRows)
@@ -178,6 +187,13 @@ export async function POST(req: NextRequest) {
       // Rollback campaign
       await supabase.from('campaigns').delete().eq('id', campaign.id)
       return NextResponse.json({ error: 'Failed to insert leads' }, { status: 500 })
+    }
+
+    // 7. Score leads and assign waves (non-fatal if it fails — leads default to wave 1)
+    try {
+      await scoreAndWaveLeads(campaign.id)
+    } catch (rfmErr) {
+      console.error('[campaigns/create] RFM scoring failed (non-fatal):', rfmErr)
     }
 
     return NextResponse.json(

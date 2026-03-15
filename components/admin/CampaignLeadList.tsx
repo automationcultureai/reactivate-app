@@ -106,6 +106,7 @@ export function CampaignLeadList({
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [search, setSearch] = useState('')
+  const [collapsedWaves, setCollapsedWaves] = useState<Set<number>>(new Set())
   const [editingEmail, setEditingEmail] = useState<{
     emailId: string
     subject: string
@@ -127,6 +128,35 @@ export function CampaignLeadList({
 
   const allIds = filteredLeads.filter((l) => l.status !== 'deleted').map((l) => l.id)
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id))
+
+  // Check if RFM waves are meaningful (i.e. not all wave 1 default)
+  const hasWaveVariation = filteredLeads.some((l) => (l.rfm_wave ?? 1) !== 1)
+
+  // Group leads by wave only when there's variation
+  const leadsGrouped: Array<{ wave: number | null; leads: typeof filteredLeads }> = hasWaveVariation
+    ? [1, 2, 3].reduce((acc, wave) => {
+        const group = filteredLeads.filter((l) => (l.rfm_wave ?? 1) === wave)
+        if (group.length > 0) acc.push({ wave, leads: group })
+        return acc
+      }, [] as Array<{ wave: number | null; leads: typeof filteredLeads }>)
+    : [{ wave: null, leads: filteredLeads }]
+
+  const WAVE_LABELS: Record<number, string> = {
+    1: 'Wave 1 — High Priority',
+    2: 'Wave 2 — Medium Priority',
+    3: 'Wave 3 — Low Priority',
+  }
+  const WAVE_BADGE: Record<number, string> = {
+    1: 'text-green-600 dark:text-green-400',
+    2: 'text-amber-600 dark:text-amber-400',
+    3: 'text-muted-foreground',
+  }
+
+  function rfmBadgeClass(total: number): string {
+    if (total >= 7) return 'bg-green-500/10 text-green-600 dark:text-green-400'
+    if (total >= 4) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+    return 'bg-muted text-muted-foreground'
+  }
 
   function toggleExpand(leadId: string) {
     setExpanded((prev) => {
@@ -327,7 +357,34 @@ export function CampaignLeadList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLeads.map((lead) => {
+            {leadsGrouped.map(({ wave, leads: groupLeads }) => (
+              <>
+                {/* Wave group header */}
+                {wave !== null && (
+                  <TableRow
+                    key={`wave-${wave}`}
+                    className="bg-muted/20 hover:bg-muted/20 cursor-pointer"
+                    onClick={() => setCollapsedWaves((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(wave)) next.delete(wave)
+                      else next.add(wave)
+                      return next
+                    })}
+                  >
+                    <TableCell colSpan={7} className="py-2 px-4">
+                      <div className="flex items-center gap-2 text-xs font-medium">
+                        {collapsedWaves.has(wave)
+                          ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                        }
+                        <span className={WAVE_BADGE[wave]}>{WAVE_LABELS[wave]}</span>
+                        <span className="text-muted-foreground">· {groupLeads.length} lead{groupLeads.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!collapsedWaves.has(wave ?? -1) && groupLeads.map((lead) => {
               const isExpanded = expanded.has(lead.id)
               const isSelected = selected.has(lead.id)
               const isDeleted = lead.status === 'deleted'
@@ -335,6 +392,7 @@ export function CampaignLeadList({
               const sentEmails = (lead.emails ?? []).filter((e) => e.sent_at)
               const unsentEmails = (lead.emails ?? []).filter((e) => !e.sent_at)
               const nextUnsent = unsentEmails.sort((a, b) => a.sequence_number - b.sequence_number)[0]
+              const rfmTotal = lead.rfm_total_score
 
               return (
                 <>
@@ -363,7 +421,14 @@ export function CampaignLeadList({
                       onClick={() => toggleExpand(lead.id)}
                     >
                       <div>
-                        <p>{lead.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p>{lead.name}</p>
+                          {rfmTotal !== undefined && rfmTotal > 0 && hasWaveVariation && (
+                            <span className={cn('inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono', rfmBadgeClass(rfmTotal))}>
+                              {rfmTotal}/9
+                            </span>
+                          )}
+                        </div>
                         {lead.email_opt_out && (
                           <span className="text-xs text-muted-foreground">Opted out</span>
                         )}
@@ -532,6 +597,8 @@ export function CampaignLeadList({
                 </>
               )
             })}
+          </>
+        ))}
           </TableBody>
         </Table>
       </div>

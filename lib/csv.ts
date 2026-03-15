@@ -10,6 +10,10 @@ export interface ParsedLead {
   service_type?: string
   purchase_value?: string
   notes?: string
+  // RFM scoring inputs — optional, used for wave prioritisation
+  last_purchase_date?: string
+  purchase_count?: string
+  lifetime_value?: string
 }
 
 export interface CsvParseResult {
@@ -50,6 +54,10 @@ const OPTIONAL_COLUMN_VARIANTS: Record<string, string[]> = {
   service_type: ['service_type', 'service', 'type', 'job_type'],
   purchase_value: ['purchase_value', 'value', 'amount', 'job_value', 'price'],
   notes: ['notes', 'note', 'comments', 'additional_notes', 'description'],
+  // RFM scoring inputs
+  last_purchase_date: ['last_purchase_date', 'last_purchase', 'purchase_date'],
+  purchase_count: ['purchase_count', 'purchases', 'num_purchases', 'purchase_frequency', 'total_purchases'],
+  lifetime_value: ['lifetime_value', 'ltv', 'total_spend', 'total_value', 'lifetime_spend', 'customer_value'],
 }
 
 /**
@@ -154,6 +162,10 @@ export function parseLeadsCsv(
     const service_type = pick(row, 'service_type', 'service', 'type', 'job_type') || undefined
     const purchase_value = pick(row, 'purchase_value', 'value', 'amount', 'job_value', 'price') || undefined
     const notes = pick(row, 'notes', 'note', 'comments', 'additional_notes', 'description') || undefined
+    // RFM scoring inputs
+    const last_purchase_date = pick(row, 'last_purchase_date', 'last_purchase', 'purchase_date') || undefined
+    const purchase_count = pick(row, 'purchase_count', 'purchases', 'num_purchases', 'purchase_frequency', 'total_purchases') || undefined
+    const lifetime_value = pick(row, 'lifetime_value', 'ltv', 'total_spend', 'total_value', 'lifetime_spend', 'customer_value') || undefined
 
     validLeads.push({
       name,
@@ -163,6 +175,9 @@ export function parseLeadsCsv(
       service_type,
       purchase_value,
       notes,
+      last_purchase_date,
+      purchase_count,
+      lifetime_value,
     })
   })
 

@@ -15,6 +15,7 @@ import {
   Loader2,
   MessageSquare,
   Mail,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -80,6 +81,16 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
   const hasEmail = channel === 'email' || channel === 'both'
   const hasSms = channel === 'sms' || channel === 'both'
 
+  const waveCounts = leads.reduce(
+    (acc, { lead }) => {
+      const w = lead.rfm_wave ?? 2
+      acc[w] = (acc[w] ?? 0) + 1
+      return acc
+    },
+    {} as Record<number, number>
+  )
+  const hasRfmData = (waveCounts[1] ?? 0) > 0 || (waveCounts[3] ?? 0) > 0
+
   return (
     <div className="space-y-6">
       {/* Top action bar */}
@@ -98,6 +109,37 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
           )}
           {sending ? 'Sending…' : 'Approve & Send'}
         </Button>
+      </div>
+
+      {/* Wave summary */}
+      <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/10 flex-wrap">
+        <Layers className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        {hasRfmData ? (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+            {(waveCounts[1] ?? 0) > 0 && (
+              <span>
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />
+                Wave 1: <strong className="text-foreground">{waveCounts[1]}</strong> leads (sends Days 1–2)
+              </span>
+            )}
+            {(waveCounts[2] ?? 0) > 0 && (
+              <span>
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />
+                Wave 2: <strong className="text-foreground">{waveCounts[2]}</strong> leads (sends Days 3–4)
+              </span>
+            )}
+            {(waveCounts[3] ?? 0) > 0 && (
+              <span>
+                <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/60 mr-1" />
+                Wave 3: <strong className="text-foreground">{waveCounts[3]}</strong> leads (sends Days 5–6)
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            All <strong className="text-foreground">{leads.length}</strong> leads in Wave 2 — no RFM data provided. Email 1 sends Days 3–4 after activation.
+          </p>
+        )}
       </div>
 
       {/* Lead rows */}

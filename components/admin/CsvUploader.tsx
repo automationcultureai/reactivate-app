@@ -161,7 +161,7 @@ export function CsvUploader({ channel, onParsed }: CsvUploaderProps) {
             </p>
           )}
 
-          {/* Optional enrichment columns detected */}
+          {/* Optional enrichment + RFM columns detected */}
           {result.detectedOptionalColumns.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-muted-foreground">Enrichment columns detected:</span>
@@ -175,6 +175,20 @@ export function CsvUploader({ channel, onParsed }: CsvUploaderProps) {
               ))}
             </div>
           )}
+
+          {/* RFM wave note */}
+          {(() => {
+            const rfmCols = ['last_purchase_date', 'purchase_count', 'lifetime_value']
+            const hasRfm = result.detectedOptionalColumns.some((c) => rfmCols.includes(c))
+            return !hasRfm ? (
+              <p className="text-xs text-muted-foreground">
+                No RFM columns detected — all leads will be Wave 2 (sends Days 3–4 after activation). Add{' '}
+                <span className="font-mono">last_purchase_date</span>,{' '}
+                <span className="font-mono">purchase_count</span>, or{' '}
+                <span className="font-mono">lifetime_value</span> to enable priority waves.
+              </p>
+            ) : null
+          })()}
         </div>
       )}
 

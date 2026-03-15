@@ -122,6 +122,7 @@ export type Campaign = {
   send_booking_confirmation: boolean
   send_booking_reminder: boolean
   send_rate_per_hour: number
+  activated_at: string | null  // Set when campaign moves to active; used for wave scheduling
   created_at: string
 }
 
@@ -151,6 +152,15 @@ export type Lead = {
   service_type: string | null
   purchase_value: string | null
   notes: string | null
+  // RFM scoring fields (added by migration 0008)
+  last_purchase_date: string | null
+  purchase_count: number | null
+  lifetime_value: number | null
+  rfm_recency_score: number
+  rfm_frequency_score: number
+  rfm_monetary_score: number
+  rfm_total_score: number
+  rfm_wave: number
   created_at: string
 }
 
