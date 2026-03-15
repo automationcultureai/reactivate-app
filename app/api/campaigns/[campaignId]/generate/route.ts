@@ -3,11 +3,12 @@ import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
 import { generateEmailSequence, generateSmsSequence } from '@/lib/claude'
 
-// Vercel max execution time — set to 300s for large campaigns
+// Each call processes up to `limit` leads (default 10) then returns `remaining`.
+// The client loops until remaining === 0, keeping each Vercel invocation short.
 export const maxDuration = 300
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ campaignId: string }> }
 ) {
   try {
@@ -20,6 +21,10 @@ export async function POST(
     const { campaignId } = await params
     const supabase = getSupabaseClient()
 
+    // Per-call limit — client loops until remaining === 0
+    const url = new URL(req.url)
+    const limit = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') ?? '10', 10)), 50)
+
     // 2. Fetch campaign
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
@@ -31,9 +36,10 @@ export async function POST(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    if (campaign.status !== 'draft') {
+    // Allow draft and ready — ready campaigns may have newly added leads to generate for
+    if (campaign.status !== 'draft' && campaign.status !== 'ready') {
       return NextResponse.json(
-        { error: `Campaign is "${campaign.status}" — can only generate for draft campaigns` },
+        { error: `Campaign is "${campaign.status}" — can only generate for draft or ready campaigns` },
         { status: 400 }
       )
     }
@@ -49,12 +55,13 @@ export async function POST(
       return NextResponse.json({ error: 'No leads found for this campaign' }, { status: 400 })
     }
 
-    // Skip leads that already have Email 1 generated — allows safe re-run for newly added leads
+    // Skip leads that already have Email 1 generated — idempotent across calls
     const { data: existingEmailLeads } = await supabase
       .from('emails')
       .select('lead_id')
       .in('lead_id', leads.map((l) => l.id))
       .eq('sequence_number', 1)
+      .is('branch_variant', null)
 
     const alreadyGeneratedIds = new Set((existingEmailLeads ?? []).map((e) => e.lead_id))
     const leadsToGenerate = leads.filter((l) => !alreadyGeneratedIds.has(l.id))
@@ -64,12 +71,17 @@ export async function POST(
         success: true,
         generated: 0,
         failed: 0,
+        remaining: 0,
+        total: leads.length,
         status: campaign.status,
         message: 'All leads already have sequences generated.',
       })
     }
 
-    // The client business name comes from the joined clients record
+    // This call processes up to `limit` leads; the rest remain for the next call
+    const batch = leadsToGenerate.slice(0, limit)
+    const remaining = leadsToGenerate.length - batch.length
+
     const clientName =
       (campaign.clients as { name: string } | null)?.name ?? 'the business'
 
@@ -79,14 +91,12 @@ export async function POST(
     const failedLeads: string[] = []
     let generatedCount = 0
 
-    // 4. Generate + insert sequences in parallel (up to 5 concurrent Claude calls).
-    // Running sequentially was too slow for 8-email branched prompts (~25s each).
+    // 4. Generate sequences in parallel (up to 5 concurrent Claude calls per batch)
     const CONCURRENCY = 5
     async function processLead(lead: typeof leadsToGenerate[number]) {
       const emailInserts: object[] = []
       const smsInserts: object[] = []
 
-      // Build lead context (enrichment fields only included if non-blank)
       const leadContext = {
         name: lead.name,
         last_contact_date: lead.last_contact_date ?? undefined,
@@ -95,8 +105,6 @@ export async function POST(
         notes: lead.notes ?? undefined,
       }
 
-      // Generate email sequence (8 variants: email1, email4 are single;
-      // email2 and email3 each have 3 behaviour-based branch variants)
       if (channel === 'email' || channel === 'both') {
         const seq = await generateEmailSequence(
           leadContext,
@@ -126,7 +134,6 @@ export async function POST(
         }
       }
 
-      // Generate SMS sequence
       if (channel === 'sms' || channel === 'both') {
         const smsList = await generateSmsSequence(
           leadContext,
@@ -144,37 +151,34 @@ export async function POST(
         }
       }
 
-      // Insert emails
       if (emailInserts.length > 0) {
         const { error } = await supabase.from('emails').insert(emailInserts)
         if (error) throw new Error(`Email insert failed: ${error.message}`)
       }
 
-      // Insert SMS
       if (smsInserts.length > 0) {
         const { error } = await supabase.from('sms_messages').insert(smsInserts)
         if (error) throw new Error(`SMS insert failed: ${error.message}`)
       }
     }
 
-    // Process in batches of CONCURRENCY
-    for (let i = 0; i < leadsToGenerate.length; i += CONCURRENCY) {
-      const batch = leadsToGenerate.slice(i, i + CONCURRENCY)
-      const results = await Promise.allSettled(batch.map((lead) => processLead(lead)))
+    for (let i = 0; i < batch.length; i += CONCURRENCY) {
+      const chunk = batch.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(chunk.map((lead) => processLead(lead)))
       for (let j = 0; j < results.length; j++) {
         const result = results[j]
         if (result.status === 'fulfilled') {
           generatedCount++
         } else {
           const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
-          console.error(`[generate] Failed for lead ${batch[j].name}:`, message)
-          failedLeads.push(batch[j].name)
+          console.error(`[generate] Failed for lead ${chunk[j].name}:`, message)
+          failedLeads.push(chunk[j].name)
         }
       }
     }
 
-    // 5. Update campaign status to "ready" (even if some leads failed)
-    if (generatedCount > 0) {
+    // 5. Mark campaign ready only when all leads are done
+    if (generatedCount > 0 && remaining === 0 && campaign.status === 'draft') {
       const { error: updateError } = await supabase
         .from('campaigns')
         .update({ status: 'ready' })
@@ -190,7 +194,9 @@ export async function POST(
       generated: generatedCount,
       failed: failedLeads.length,
       failed_leads: failedLeads,
-      status: generatedCount > 0 ? 'ready' : 'draft',
+      remaining,
+      total: leads.length,
+      status: remaining === 0 && generatedCount > 0 ? 'ready' : campaign.status,
     })
   } catch (err) {
     console.error('[generate] Unexpected error:', err)

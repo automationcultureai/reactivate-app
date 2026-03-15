@@ -13,44 +13,68 @@ interface GenerateButtonProps {
   label?: string  // Custom label for "generate for new leads" use case
 }
 
+const CHUNK_SIZE = 10  // leads per API call — keeps each Vercel invocation ~50s
+
 export function GenerateButton({ campaignId, clientId, leadCount, label }: GenerateButtonProps) {
   const router = useRouter()
   const [generating, setGenerating] = useState(false)
 
   async function handleGenerate() {
     setGenerating(true)
-    const toastId = toast.loading(
-      `Generating sequences for ${leadCount} lead${leadCount !== 1 ? 's' : ''}… this may take a minute.`
-    )
+    let processed = 0
+    let total = leadCount
+    const allFailedLeads: string[] = []
+    const toastId = toast.loading(`Generating sequences… 0/${total}`)
 
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/generate`, {
-        method: 'POST',
-      })
+      // Loop until the server reports no remaining leads
+      while (true) {
+        const res = await fetch(
+          `/api/campaigns/${campaignId}/generate?limit=${CHUNK_SIZE}`,
+          { method: 'POST' }
+        )
 
-      const json = await res.json()
+        // If the server returned non-JSON (e.g. a 504 HTML page), surface it clearly
+        let json: Record<string, unknown>
+        try {
+          json = await res.json()
+        } catch {
+          toast.error('Server error during generation — check Vercel logs.', { id: toastId })
+          return
+        }
 
-      if (!res.ok) {
-        toast.error(json.error ?? 'Generation failed', { id: toastId })
-        return
+        if (!res.ok) {
+          toast.error((json.error as string) ?? 'Generation failed', { id: toastId })
+          return
+        }
+
+        // Update totals with server-reported values
+        if (typeof json.total === 'number') total = json.total
+        processed += (json.generated as number ?? 0) + (json.failed as number ?? 0)
+        allFailedLeads.push(...((json.failed_leads as string[]) ?? []))
+
+        const remaining = json.remaining as number ?? 0
+
+        if (remaining > 0) {
+          toast.loading(`Generating sequences… ${processed}/${total}`, { id: toastId })
+        } else {
+          break
+        }
       }
 
-      if (json.message && json.generated === 0) {
-        toast.success(json.message, { id: toastId })
-        router.refresh()
-        return
-      }
-
-      if (json.failed > 0) {
+      // Done — show result
+      if (allFailedLeads.length > 0) {
+        const successCount = processed - allFailedLeads.length
         toast.warning(
-          `Generated ${json.generated} leads. ${json.failed} failed: ${(json.failed_leads ?? []).slice(0, 3).join(', ')}${json.failed > 3 ? '…' : ''}`,
+          `Generated ${successCount} lead${successCount !== 1 ? 's' : ''}. ${allFailedLeads.length} failed: ${allFailedLeads.slice(0, 3).join(', ')}${allFailedLeads.length > 3 ? '…' : ''}`,
           { id: toastId }
         )
+      } else if (processed === 0) {
+        toast.success('All leads already have sequences generated.', { id: toastId })
       } else {
-        toast.success(`${json.generated} sequences generated successfully.`, { id: toastId })
+        toast.success(`${processed} sequence${processed !== 1 ? 's' : ''} generated successfully.`, { id: toastId })
       }
 
-      // For draft campaigns, go to preview. For active campaigns, just refresh.
       router.push(`/admin/clients/${clientId}/campaigns/${campaignId}/preview`)
       router.refresh()
     } catch {
