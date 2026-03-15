@@ -79,88 +79,97 @@ export async function POST(
     const failedLeads: string[] = []
     let generatedCount = 0
 
-    // 4. Generate + insert sequences for each lead (skipping those already generated)
-    for (const lead of leadsToGenerate) {
-      try {
-        const emailInserts: object[] = []
-        const smsInserts: object[] = []
+    // 4. Generate + insert sequences in parallel (up to 5 concurrent Claude calls).
+    // Running sequentially was too slow for 8-email branched prompts (~25s each).
+    const CONCURRENCY = 5
+    async function processLead(lead: typeof leadsToGenerate[number]) {
+      const emailInserts: object[] = []
+      const smsInserts: object[] = []
 
-        // Build lead context (enrichment fields only included if non-blank)
-        const leadContext = {
-          name: lead.name,
-          last_contact_date: lead.last_contact_date ?? undefined,
-          service_type: lead.service_type ?? undefined,
-          purchase_value: lead.purchase_value ?? undefined,
-          notes: lead.notes ?? undefined,
+      // Build lead context (enrichment fields only included if non-blank)
+      const leadContext = {
+        name: lead.name,
+        last_contact_date: lead.last_contact_date ?? undefined,
+        service_type: lead.service_type ?? undefined,
+        purchase_value: lead.purchase_value ?? undefined,
+        notes: lead.notes ?? undefined,
+      }
+
+      // Generate email sequence (8 variants: email1, email4 are single;
+      // email2 and email3 each have 3 behaviour-based branch variants)
+      if (channel === 'email' || channel === 'both') {
+        const seq = await generateEmailSequence(
+          leadContext,
+          clientName,
+          tone_preset,
+          tone_custom,
+          custom_instructions
+        )
+        const BRANCH_ROWS = [
+          { sequence_number: 1, branch_variant: null,         data: seq.email1 },
+          { sequence_number: 2, branch_variant: '2_unopened', data: seq.email2_unopened },
+          { sequence_number: 2, branch_variant: '2_opened',   data: seq.email2_opened },
+          { sequence_number: 2, branch_variant: '2_clicked',  data: seq.email2_clicked },
+          { sequence_number: 3, branch_variant: '3_unopened', data: seq.email3_unopened },
+          { sequence_number: 3, branch_variant: '3_opened',   data: seq.email3_opened },
+          { sequence_number: 3, branch_variant: '3_clicked',  data: seq.email3_clicked },
+          { sequence_number: 4, branch_variant: null,         data: seq.email4 },
+        ] as const
+        for (const row of BRANCH_ROWS) {
+          emailInserts.push({
+            lead_id: lead.id,
+            sequence_number: row.sequence_number,
+            branch_variant: row.branch_variant,
+            subject: row.data.subject,
+            body: row.data.body,
+          })
         }
+      }
 
-        // Generate email sequence (8 variants: email1, email4 are single;
-        // email2 and email3 each have 3 behaviour-based branch variants)
-        if (channel === 'email' || channel === 'both') {
-          const seq = await generateEmailSequence(
-            leadContext,
-            clientName,
-            tone_preset,
-            tone_custom,
-            custom_instructions
-          )
-          const BRANCH_ROWS = [
-            { sequence_number: 1, branch_variant: null,         data: seq.email1 },
-            { sequence_number: 2, branch_variant: '2_unopened', data: seq.email2_unopened },
-            { sequence_number: 2, branch_variant: '2_opened',   data: seq.email2_opened },
-            { sequence_number: 2, branch_variant: '2_clicked',  data: seq.email2_clicked },
-            { sequence_number: 3, branch_variant: '3_unopened', data: seq.email3_unopened },
-            { sequence_number: 3, branch_variant: '3_opened',   data: seq.email3_opened },
-            { sequence_number: 3, branch_variant: '3_clicked',  data: seq.email3_clicked },
-            { sequence_number: 4, branch_variant: null,         data: seq.email4 },
-          ] as const
-          for (const row of BRANCH_ROWS) {
-            emailInserts.push({
-              lead_id: lead.id,
-              sequence_number: row.sequence_number,
-              branch_variant: row.branch_variant,
-              subject: row.data.subject,
-              body: row.data.body,
-            })
-          }
+      // Generate SMS sequence
+      if (channel === 'sms' || channel === 'both') {
+        const smsList = await generateSmsSequence(
+          leadContext,
+          clientName,
+          tone_preset,
+          tone_custom,
+          custom_instructions
+        )
+        for (let i = 0; i < 4; i++) {
+          smsInserts.push({
+            lead_id: lead.id,
+            sequence_number: i + 1,
+            body: smsList[i].body,
+          })
         }
+      }
 
-        // Generate SMS sequence
-        if (channel === 'sms' || channel === 'both') {
-          const smsList = await generateSmsSequence(
-            leadContext,
-            clientName,
-            tone_preset,
-            tone_custom,
-            custom_instructions
-          )
-          for (let i = 0; i < 4; i++) {
-            smsInserts.push({
-              lead_id: lead.id,
-              sequence_number: i + 1,
-              body: smsList[i].body,
-            })
-          }
+      // Insert emails
+      if (emailInserts.length > 0) {
+        const { error } = await supabase.from('emails').insert(emailInserts)
+        if (error) throw new Error(`Email insert failed: ${error.message}`)
+      }
+
+      // Insert SMS
+      if (smsInserts.length > 0) {
+        const { error } = await supabase.from('sms_messages').insert(smsInserts)
+        if (error) throw new Error(`SMS insert failed: ${error.message}`)
+      }
+    }
+
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < leadsToGenerate.length; i += CONCURRENCY) {
+      const batch = leadsToGenerate.slice(i, i + CONCURRENCY)
+      const results = await Promise.allSettled(batch.map((lead) => processLead(lead)))
+      for (let j = 0; j < results.length; j++) {
+        const result = results[j]
+        if (result.status === 'fulfilled') {
+          generatedCount++
+        } else {
+          const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
+          console.error(`[generate] Failed for lead ${batch[j].name}:`, message)
+          failedLeads.push(batch[j].name)
         }
-
-        // Insert emails
-        if (emailInserts.length > 0) {
-          const { error } = await supabase.from('emails').insert(emailInserts)
-          if (error) throw new Error(`Email insert failed: ${error.message}`)
-        }
-
-        // Insert SMS
-        if (smsInserts.length > 0) {
-          const { error } = await supabase.from('sms_messages').insert(smsInserts)
-          if (error) throw new Error(`SMS insert failed: ${error.message}`)
-        }
-
-        generatedCount++
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error(`[generate] Failed for lead ${lead.id} (${lead.name}):`, message)
-        failedLeads.push(lead.name)
-        // Continue with other leads — don't abort the whole batch
       }
     }
 
