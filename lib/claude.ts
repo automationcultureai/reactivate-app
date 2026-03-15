@@ -9,6 +9,17 @@ export interface GeneratedEmail {
   body: string
 }
 
+export interface GeneratedEmailSequence {
+  email1: GeneratedEmail
+  email2_unopened: GeneratedEmail
+  email2_opened: GeneratedEmail
+  email2_clicked: GeneratedEmail
+  email3_unopened: GeneratedEmail
+  email3_opened: GeneratedEmail
+  email3_clicked: GeneratedEmail
+  email4: GeneratedEmail
+}
+
 export interface GeneratedSms {
   body: string
 }
@@ -50,7 +61,10 @@ function extractJsonFromText(text: string): string {
   // Strip markdown code fences if Claude wrapped the JSON
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) return fenceMatch[1].trim()
-  // Find the first [...] block
+  // Find the first {...} object block
+  const objectMatch = text.match(/\{[\s\S]*\}/)
+  if (objectMatch) return objectMatch[0]
+  // Find the first [...] array block
   const arrayMatch = text.match(/\[[\s\S]*\]/)
   if (arrayMatch) return arrayMatch[0]
   return text.trim()
@@ -84,10 +98,12 @@ function buildLeadContextBlock(lead: LeadContext): string {
 }
 
 /**
- * Generates a personalised 4-email reactivation sequence for a lead.
- * Server-side only — never import this in client components.
+ * Generates a branched 8-email reactivation sequence for a lead.
+ * Email 1 and Email 4 are single. Emails 2 and 3 have 3 variants each
+ * (unopened / opened / clicked) that are selected at send time based on
+ * the lead's actual behaviour.
  *
- * Returns exactly 4 { subject, body } objects or throws.
+ * Server-side only — never import this in client components.
  */
 export async function generateEmailSequence(
   lead: LeadContext,
@@ -95,7 +111,7 @@ export async function generateEmailSequence(
   tonePreset: string,
   toneCustom: string | null,
   customInstructions: string | null
-): Promise<GeneratedEmail[]> {
+): Promise<GeneratedEmailSequence> {
   const client = getClient()
   const tone = buildToneClause(tonePreset, toneCustom)
   const instructions = buildInstructionsBlock(customInstructions)
@@ -107,11 +123,16 @@ Lead name: ${lead.name}
 Business name: ${clientBusiness}
 Tone: ${tone}${leadContext}${instructions}
 
-Write exactly 4 emails with distinct purposes:
-- Email 1: Initial reactivation — warm re-introduction, acknowledge the time since last contact, easy CTA with booking link
-- Email 2: Follow-up — assume no reply to Email 1, reinforce the value, mention the booking link again
-- Email 3: Final follow-up — last-chance tone, gentle urgency, booking link
-- Email 4: Re-engagement — for leads who clicked but didn't book, or whose appointment was cancelled — acknowledge the near-miss, offer to reschedule
+Write exactly 8 emails. Emails 2 and 3 each have 3 behaviour-based variants sent depending on what the lead did with the previous email:
+
+- email1: Initial reactivation — warm re-introduction, acknowledge the time since last contact, easy CTA with booking link
+- email2_unopened: Follow-up assuming lead never opened Email 1 — try a different angle or subject, keep it brief
+- email2_opened: Follow-up assuming lead opened Email 1 but didn't act — acknowledge their interest, reinforce the value, gentle nudge
+- email2_clicked: Follow-up assuming lead clicked the booking link but didn't complete — directly acknowledge the near-miss, make it easy to finish
+- email3_unopened: Final attempt for a lead who has not opened any emails — very brief, low-pressure, last chance
+- email3_opened: Final attempt for a lead who opened but never clicked — acknowledge their consideration, create mild urgency
+- email3_clicked: Final attempt for a lead who clicked twice but didn't book — address the hesitation directly, offer to help
+- email4: Re-engagement — for leads who clicked the booking link but didn't complete their booking, or whose appointment was cancelled — acknowledge the near-miss, offer to reschedule
 
 Non-negotiable rules:
 - Every email body must be 150 words or fewer
@@ -125,40 +146,39 @@ Non-negotiable rules:
 - Do not start with "Dear" — begin naturally
 - Do not include unsubscribe text — that is appended automatically
 
-Return ONLY a valid JSON array with exactly 4 objects. No preamble, no explanation, no code blocks.
-Format: [{"subject":"...","body":"..."},{"subject":"...","body":"..."},{"subject":"...","body":"..."},{"subject":"...","body":"..."}]`
+Return ONLY a valid JSON object with exactly these 8 keys. No preamble, no explanation, no code blocks.
+Format: {"email1":{"subject":"...","body":"..."},"email2_unopened":{"subject":"...","body":"..."},"email2_opened":{"subject":"...","body":"..."},"email2_clicked":{"subject":"...","body":"..."},"email3_unopened":{"subject":"...","body":"..."},"email3_opened":{"subject":"...","body":"..."},"email3_clicked":{"subject":"...","body":"..."},"email4":{"subject":"...","body":"..."}}`
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 3000,
+    max_tokens: 6000,
     messages: [{ role: 'user', content: prompt }],
   })
 
   const rawText = message.content[0]?.type === 'text' ? message.content[0].text : ''
   const jsonStr = extractJsonFromText(rawText)
 
-  let emails: GeneratedEmail[]
+  let seq: GeneratedEmailSequence
   try {
-    emails = JSON.parse(jsonStr)
+    seq = JSON.parse(jsonStr)
   } catch {
     throw new Error(
       `Claude returned invalid JSON for email sequence (lead: ${lead.name}). Raw: ${rawText.slice(0, 200)}`
     )
   }
 
-  if (!Array.isArray(emails) || emails.length !== 4) {
-    throw new Error(
-      `Claude returned ${Array.isArray(emails) ? emails.length : 'non-array'} emails for ${lead.name} — expected exactly 4`
-    )
-  }
+  const REQUIRED_KEYS: (keyof GeneratedEmailSequence)[] = [
+    'email1', 'email2_unopened', 'email2_opened', 'email2_clicked',
+    'email3_unopened', 'email3_opened', 'email3_clicked', 'email4',
+  ]
 
-  for (let i = 0; i < 4; i++) {
-    if (typeof emails[i]?.subject !== 'string' || typeof emails[i]?.body !== 'string') {
-      throw new Error(`Email ${i + 1} for ${lead.name} is missing required subject or body fields`)
+  for (const key of REQUIRED_KEYS) {
+    if (typeof seq[key]?.subject !== 'string' || typeof seq[key]?.body !== 'string') {
+      throw new Error(`Email key "${key}" for ${lead.name} is missing subject or body`)
     }
   }
 
-  return emails
+  return seq
 }
 
 // ============================================================

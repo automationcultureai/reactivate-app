@@ -32,6 +32,15 @@ interface PreviewListProps {
   leads: LeadPreviewData[]
 }
 
+const BRANCH_TABS = ['unopened', 'opened', 'clicked'] as const
+type BranchTab = (typeof BRANCH_TABS)[number]
+
+const BRANCH_TAB_LABELS: Record<BranchTab, string> = {
+  unopened: 'Unopened',
+  opened: 'Opened',
+  clicked: 'Clicked',
+}
+
 export function PreviewList({ campaignId, clientId, channel, leads }: PreviewListProps) {
   const router = useRouter()
   const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set())
@@ -41,6 +50,9 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
   const [emailEdits, setEmailEdits] = useState<
     Record<string, { subject: string; body: string }>
   >({})
+
+  // Active branch tab per (leadId, sequenceNumber): key = `${leadId}-${seqNum}`
+  const [branchTabs, setBranchTabs] = useState<Record<string, BranchTab>>({})
 
   function toggleLead(leadId: string) {
     setExpandedLeads((prev) => {
@@ -53,6 +65,14 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
 
   function handleEmailUpdated(emailId: string, subject: string, body: string) {
     setEmailEdits((prev) => ({ ...prev, [emailId]: { subject, body } }))
+  }
+
+  function getBranchTab(leadId: string, seqNum: number): BranchTab {
+    return branchTabs[`${leadId}-${seqNum}`] ?? 'unopened'
+  }
+
+  function setActiveBranchTab(leadId: string, seqNum: number, tab: BranchTab) {
+    setBranchTabs((prev) => ({ ...prev, [`${leadId}-${seqNum}`]: tab }))
   }
 
   async function handleApproveSend() {
@@ -147,6 +167,7 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
         {leads.map(({ lead, emails, sms }) => {
           const isExpanded = expandedLeads.has(lead.id)
           const email1 = emails.find((e) => e.sequence_number === 1)
+          const isBranched = emails.some((e) => e.branch_variant !== null)
 
           return (
             <div key={lead.id} className="rounded-lg border border-border overflow-hidden">
@@ -176,6 +197,11 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
                         {sms.length}
                       </Badge>
                     )}
+                    {isBranched && (
+                      <Badge variant="outline" className="text-xs text-blue-600 dark:text-blue-400 border-blue-500/30">
+                        Branched
+                      </Badge>
+                    )}
                   </div>
                   {email1 && (
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
@@ -201,21 +227,66 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
                         Email sequence
                       </p>
                       <div className="grid gap-3">
-                        {emails
-                          .sort((a, b) => a.sequence_number - b.sequence_number)
-                          .map((email) => (
+                        {/* Email 1 — always single */}
+                        {email1 && (
+                          <EmailEditor
+                            key={email1.id}
+                            emailId={email1.id}
+                            campaignId={campaignId}
+                            sequenceNumber={1}
+                            initialSubject={emailEdits[email1.id]?.subject ?? email1.subject}
+                            initialBody={emailEdits[email1.id]?.body ?? email1.body}
+                            onUpdated={(subject, body) =>
+                              handleEmailUpdated(email1.id, subject, body)
+                            }
+                          />
+                        )}
+
+                        {/* Email 2 — branched tabs or single */}
+                        <BranchedEmailStep
+                          leadId={lead.id}
+                          seqNum={2}
+                          emails={emails}
+                          isBranched={isBranched}
+                          campaignId={campaignId}
+                          emailEdits={emailEdits}
+                          activeTab={getBranchTab(lead.id, 2)}
+                          onTabChange={(tab) => setActiveBranchTab(lead.id, 2, tab)}
+                          onUpdated={handleEmailUpdated}
+                        />
+
+                        {/* Email 3 — branched tabs or single */}
+                        <BranchedEmailStep
+                          leadId={lead.id}
+                          seqNum={3}
+                          emails={emails}
+                          isBranched={isBranched}
+                          campaignId={campaignId}
+                          emailEdits={emailEdits}
+                          activeTab={getBranchTab(lead.id, 3)}
+                          onTabChange={(tab) => setActiveBranchTab(lead.id, 3, tab)}
+                          onUpdated={handleEmailUpdated}
+                        />
+
+                        {/* Email 4 — always single */}
+                        {(() => {
+                          const email4 = emails.find(
+                            (e) => e.sequence_number === 4 && e.branch_variant === null
+                          ) ?? emails.find((e) => e.sequence_number === 4)
+                          return email4 ? (
                             <EmailEditor
-                              key={email.id}
-                              emailId={email.id}
+                              key={email4.id}
+                              emailId={email4.id}
                               campaignId={campaignId}
-                              sequenceNumber={email.sequence_number}
-                              initialSubject={emailEdits[email.id]?.subject ?? email.subject}
-                              initialBody={emailEdits[email.id]?.body ?? email.body}
+                              sequenceNumber={4}
+                              initialSubject={emailEdits[email4.id]?.subject ?? email4.subject}
+                              initialBody={emailEdits[email4.id]?.body ?? email4.body}
                               onUpdated={(subject, body) =>
-                                handleEmailUpdated(email.id, subject, body)
+                                handleEmailUpdated(email4.id, subject, body)
                               }
                             />
-                          ))}
+                          ) : null
+                        })()}
                       </div>
                     </div>
                   )}
@@ -272,6 +343,101 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
           )}
           {sending ? 'Sending…' : 'Approve & Send'}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── BranchedEmailStep ───────────────────────────────────────────────────────
+// Renders Email 2 or Email 3: either a single EmailEditor (pre-branching
+// campaigns) or a 3-tab selector (Unopened / Opened / Clicked).
+
+interface BranchedEmailStepProps {
+  leadId: string
+  seqNum: 2 | 3
+  emails: Email[]
+  isBranched: boolean
+  campaignId: string
+  emailEdits: Record<string, { subject: string; body: string }>
+  activeTab: BranchTab
+  onTabChange: (tab: BranchTab) => void
+  onUpdated: (emailId: string, subject: string, body: string) => void
+}
+
+function BranchedEmailStep({
+  leadId,
+  seqNum,
+  emails,
+  isBranched,
+  campaignId,
+  emailEdits,
+  activeTab,
+  onTabChange,
+  onUpdated,
+}: BranchedEmailStepProps) {
+  const variants = emails.filter((e) => e.sequence_number === seqNum)
+  if (variants.length === 0) return null
+
+  // Pre-branching campaign or single variant: render as plain EmailEditor
+  if (!isBranched || variants.length === 1) {
+    const email = variants[0]
+    return (
+      <EmailEditor
+        key={email.id}
+        emailId={email.id}
+        campaignId={campaignId}
+        sequenceNumber={seqNum}
+        initialSubject={emailEdits[email.id]?.subject ?? email.subject}
+        initialBody={emailEdits[email.id]?.body ?? email.body}
+        onUpdated={(subject, body) => onUpdated(email.id, subject, body)}
+      />
+    )
+  }
+
+  // Branched campaign: 3-tab interface
+  const activeVariant = variants.find(
+    (e) => e.branch_variant === `${seqNum}_${activeTab}`
+  )
+
+  return (
+    <div className="rounded-md border border-border overflow-hidden">
+      {/* Tab bar */}
+      <div className="flex items-center border-b border-border bg-muted/10 px-3 pt-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mr-3 shrink-0">
+          Email {seqNum}
+        </span>
+        {BRANCH_TABS.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => onTabChange(tab)}
+            className={cn(
+              'px-3 py-1.5 text-xs font-medium border-b-2 transition-colors',
+              activeTab === tab
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {BRANCH_TAB_LABELS[tab]}
+          </button>
+        ))}
+      </div>
+
+      {/* Active variant */}
+      <div className="p-3">
+        {activeVariant ? (
+          <EmailEditor
+            key={`${leadId}-${seqNum}-${activeTab}`}
+            emailId={activeVariant.id}
+            campaignId={campaignId}
+            sequenceNumber={seqNum}
+            initialSubject={emailEdits[activeVariant.id]?.subject ?? activeVariant.subject}
+            initialBody={emailEdits[activeVariant.id]?.body ?? activeVariant.body}
+            onUpdated={(subject, body) => onUpdated(activeVariant.id, subject, body)}
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground py-2">No variant found.</p>
+        )}
       </div>
     </div>
   )

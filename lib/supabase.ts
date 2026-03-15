@@ -168,6 +168,10 @@ export type Email = {
   id: string
   lead_id: string
   sequence_number: 1 | 2 | 3 | 4
+  // null = Email 1 or Email 4 (no branching)
+  // '2_unopened' | '2_opened' | '2_clicked' = Email 2 variants (added by migration 0009)
+  // '3_unopened' | '3_opened' | '3_clicked' = Email 3 variants (added by migration 0009)
+  branch_variant: string | null
   subject: string
   body: string
   sent_at: string | null

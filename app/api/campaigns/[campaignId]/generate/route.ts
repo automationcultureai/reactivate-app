@@ -94,21 +94,33 @@ export async function POST(
           notes: lead.notes ?? undefined,
         }
 
-        // Generate email sequence
+        // Generate email sequence (8 variants: email1, email4 are single;
+        // email2 and email3 each have 3 behaviour-based branch variants)
         if (channel === 'email' || channel === 'both') {
-          const emails = await generateEmailSequence(
+          const seq = await generateEmailSequence(
             leadContext,
             clientName,
             tone_preset,
             tone_custom,
             custom_instructions
           )
-          for (let i = 0; i < 4; i++) {
+          const BRANCH_ROWS = [
+            { sequence_number: 1, branch_variant: null,         data: seq.email1 },
+            { sequence_number: 2, branch_variant: '2_unopened', data: seq.email2_unopened },
+            { sequence_number: 2, branch_variant: '2_opened',   data: seq.email2_opened },
+            { sequence_number: 2, branch_variant: '2_clicked',  data: seq.email2_clicked },
+            { sequence_number: 3, branch_variant: '3_unopened', data: seq.email3_unopened },
+            { sequence_number: 3, branch_variant: '3_opened',   data: seq.email3_opened },
+            { sequence_number: 3, branch_variant: '3_clicked',  data: seq.email3_clicked },
+            { sequence_number: 4, branch_variant: null,         data: seq.email4 },
+          ] as const
+          for (const row of BRANCH_ROWS) {
             emailInserts.push({
               lead_id: lead.id,
-              sequence_number: i + 1,
-              subject: emails[i].subject,
-              body: emails[i].body,
+              sequence_number: row.sequence_number,
+              branch_variant: row.branch_variant,
+              subject: row.data.subject,
+              body: row.data.body,
             })
           }
         }

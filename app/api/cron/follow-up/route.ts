@@ -122,11 +122,11 @@ export async function POST(req: NextRequest) {
       .eq('event_type', 'clicked')
       .order('created_at', { ascending: false })
 
-    // Group emails by lead_id → sequence_number
-    const emailsByLead = new Map<string, Record<number, Email>>()
+    // Group emails by lead_id → flat array (multiple branch variants per sequence number)
+    const emailsByLead = new Map<string, Email[]>()
     for (const email of allEmails ?? []) {
-      if (!emailsByLead.has(email.lead_id)) emailsByLead.set(email.lead_id, {})
-      emailsByLead.get(email.lead_id)![email.sequence_number] = email as Email
+      if (!emailsByLead.has(email.lead_id)) emailsByLead.set(email.lead_id, [])
+      emailsByLead.get(email.lead_id)!.push(email as Email)
     }
 
     // Group SMS by lead_id → sequence_number
@@ -158,11 +158,26 @@ export async function POST(req: NextRequest) {
       if (hasSms && !lead.phone) continue
       if (!hasEmail && !hasSms) continue
 
-      const emails = emailsByLead.get(lead.id) ?? {}
-      const email1 = emails[1]
-      const email2 = emails[2]
-      const email3 = emails[3]
-      const email4 = emails[4]
+      const leadEmails = emailsByLead.get(lead.id) ?? []
+
+      // Helper: find a specific email by sequence number and branch variant.
+      // Falls back to null-variant if the requested branch variant doesn't exist
+      // (backward compatibility for campaigns created before Feature 2).
+      function getEmail(seqNum: number, branchVariant: string | null = null): Email | undefined {
+        const match = leadEmails.find(
+          (e) => e.sequence_number === seqNum && e.branch_variant === branchVariant
+        )
+        if (!match && branchVariant !== null) {
+          // Fallback: pre-branching campaigns store email2/email3 with branch_variant=null
+          return leadEmails.find(
+            (e) => e.sequence_number === seqNum && e.branch_variant === null
+          )
+        }
+        return match
+      }
+
+      const email1 = getEmail(1)
+      const email4 = getEmail(4)
 
       let emailToSend: Email | undefined
       let sequenceNumber: number | undefined
@@ -188,27 +203,35 @@ export async function POST(req: NextRequest) {
       }
 
       if (lead.status === 'emailed') {
-        // Email 2: Email 1 sent > 3 days ago, Email 2 not sent yet
-        if (email1?.sent_at && email2 && !email2.sent_at) {
+        // Email 2: Email 1 sent > 3 days ago, no Email 2 sent yet for this lead.
+        // Select branch variant based on lead's behaviour with Email 1.
+        const anyEmail2Sent = leadEmails.some((e) => e.sequence_number === 2 && e.sent_at)
+        if (email1?.sent_at && !anyEmail2Sent) {
           const msSince = now - new Date(email1.sent_at).getTime()
           if (msSince >= THREE_DAYS_MS) {
-            emailToSend = email2
-            sequenceNumber = 2
+            // Determine branch: clicked > opened > unopened
+            const state2 = email1.clicked_at ? '2_clicked' : email1.opened_at ? '2_opened' : '2_unopened'
+            const email2 = getEmail(2, state2)
+            if (email2 && !email2.sent_at) {
+              emailToSend = email2
+              sequenceNumber = 2
+            }
           }
         }
 
-        // Email 3: Email 1 sent > 8 days ago, Email 3 not sent yet
-        // Only send if Email 2 is already sent (preserve correct sequence)
-        if (
-          email1?.sent_at &&
-          email2?.sent_at &&
-          email3 &&
-          !email3.sent_at
-        ) {
+        // Email 3: Email 1 sent > 8 days ago, Email 2 already sent, no Email 3 sent yet.
+        // Select branch variant based on lead's behaviour with whichever Email 2 was sent.
+        const sentEmail2 = leadEmails.find((e) => e.sequence_number === 2 && e.sent_at)
+        const anyEmail3Sent = leadEmails.some((e) => e.sequence_number === 3 && e.sent_at)
+        if (email1?.sent_at && sentEmail2 && !anyEmail3Sent) {
           const msSince = now - new Date(email1.sent_at).getTime()
           if (msSince >= EIGHT_DAYS_MS) {
-            emailToSend = email3
-            sequenceNumber = 3
+            const state3 = sentEmail2.clicked_at ? '3_clicked' : sentEmail2.opened_at ? '3_opened' : '3_unopened'
+            const email3 = getEmail(3, state3)
+            if (email3 && !email3.sent_at) {
+              emailToSend = email3
+              sequenceNumber = 3
+            }
           }
         }
       }
