@@ -3,7 +3,8 @@ import { getSupabaseClient } from '@/lib/supabase'
 import { sendEmail, sendDelay } from '@/lib/gmail'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 import { sendAdminAlert } from '@/lib/alert'
-import type { Email, Lead, SmsMessage } from '@/lib/supabase'
+import { pickAbVariant, evaluateAbWinner } from '@/lib/ab-testing'
+import type { Email, Lead, SmsMessage, CampaignAbTest } from '@/lib/supabase'
 
 // Allow up to 300 seconds — cron processes all active campaigns in one run
 export const maxDuration = 300
@@ -121,6 +122,30 @@ export async function POST(req: NextRequest) {
       .in('lead_id', leadIds)
       .eq('event_type', 'clicked')
       .order('created_at', { ascending: false })
+
+    // Fetch A/B test config for this campaign (all steps, enabled only)
+    const { data: abTests } = await supabase
+      .from('campaign_ab_tests')
+      .select('*')
+      .eq('campaign_id', campaign.id)
+      .eq('ab_test_enabled', true)
+
+    // Map: sequence_number → CampaignAbTest
+    const abTestBySeq = new Map<number, CampaignAbTest>()
+    for (const t of abTests ?? []) {
+      abTestBySeq.set(t.sequence_number, t as CampaignAbTest)
+    }
+
+    // Local A/B send counters to avoid repeated DB round-trips within a campaign run
+    // Map: ab_test.id → { aSends, bSends, firstSendAt }
+    const abCounts = new Map<string, { aSends: number; bSends: number; firstSendAt: string | null }>()
+    for (const t of abTests ?? []) {
+      abCounts.set(t.id, {
+        aSends: t.ab_variant_a_sends ?? 0,
+        bSends: t.ab_variant_b_sends ?? 0,
+        firstSendAt: t.first_send_at ?? null,
+      })
+    }
 
     // Group emails by lead_id → flat array (multiple branch variants per sequence number)
     const emailsByLead = new Map<string, Email[]>()
@@ -257,9 +282,33 @@ export async function POST(req: NextRequest) {
       // Send email follow-up
       if (hasEmail && emailToSend && sequenceNumber && lead.email && !lead.email_opt_out) {
         try {
+          // Apply A/B subject override if a test is active for this sequence number
+          let subjectToSend = emailToSend.subject
+          let abVariant: string | null = null
+          const abTest = abTestBySeq.get(sequenceNumber)
+          if (abTest) {
+            const winner = abTest.ab_winner as 'A' | 'B' | 'inconclusive' | null
+            abVariant = (winner === 'A' || winner === 'B') ? winner : pickAbVariant()
+            subjectToSend =
+              abVariant === 'A'
+                ? (abTest.subject_variant_a ?? emailToSend.subject)
+                : (abTest.subject_variant_b ?? emailToSend.subject)
+            const counts = abCounts.get(abTest.id)!
+            if (!counts.firstSendAt) counts.firstSendAt = now2
+            if (abVariant === 'A') { counts.aSends++ } else { counts.bSends++ }
+            await Promise.all([
+              supabase.from('emails').update({ ab_variant_assigned: abVariant }).eq('id', emailToSend.id),
+              supabase.from('campaign_ab_tests').update({
+                ab_variant_a_sends: counts.aSends,
+                ab_variant_b_sends: counts.bSends,
+                first_send_at: counts.firstSendAt,
+              }).eq('id', abTest.id),
+            ])
+          }
+
           await sendEmail({
             to: lead.email,
-            subject: emailToSend.subject,
+            subject: subjectToSend,
             body: emailToSend.body,
             bookingUrl,
             replyTo: clientEmail,
@@ -272,7 +321,7 @@ export async function POST(req: NextRequest) {
           await supabase.from('lead_events').insert({
             lead_id: lead.id,
             event_type: 'email_sent',
-            description: `Email ${sequenceNumber} sent (follow-up cron)`,
+            description: `Email ${sequenceNumber} sent (follow-up cron)${abVariant ? ` (A/B variant ${abVariant})` : ''}`,
           })
           // Update pending leads to emailed so follow-up sequence picks them up correctly
           if (lead.status === 'pending') {
@@ -325,6 +374,11 @@ export async function POST(req: NextRequest) {
       if (remainingToday > 0) {
         await sendDelay()
       }
+    }
+
+    // Evaluate A/B winners for any active tests in this campaign that are 4+ hours old
+    for (const [seqNum] of abTestBySeq) {
+      await evaluateAbWinner(supabase, campaign.id, seqNum)
     }
   }
 

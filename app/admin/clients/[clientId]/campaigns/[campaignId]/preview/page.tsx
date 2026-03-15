@@ -5,7 +5,7 @@ import { PreviewList, LeadPreviewData } from '@/components/admin/PreviewList'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/lib/button-variants'
 import { ChevronLeft, Eye } from 'lucide-react'
-import type { Lead, Email, SmsMessage } from '@/lib/supabase'
+import type { Lead, Email, SmsMessage, CampaignAbTest } from '@/lib/supabase'
 
 interface Props {
   params: Promise<{ clientId: string; campaignId: string }>
@@ -71,6 +71,12 @@ export default async function PreviewPage({ params }: Props) {
         .order('sequence_number', { ascending: true })
     : { data: [] as SmsMessage[] }
 
+  // Fetch A/B test config for this campaign
+  const { data: abTests } = await supabase
+    .from('campaign_ab_tests')
+    .select('*')
+    .eq('campaign_id', campaignId)
+
   // Group emails + SMS by lead_id
   const emailsByLead = new Map<string, Email[]>()
   const smsByLead = new Map<string, SmsMessage[]>()
@@ -120,6 +126,7 @@ export default async function PreviewPage({ params }: Props) {
         clientId={clientId}
         channel={campaign.channel as 'email' | 'sms' | 'both'}
         leads={leadPreviews}
+        initialAbTests={(abTests ?? []) as CampaignAbTest[]}
       />
     </div>
   )

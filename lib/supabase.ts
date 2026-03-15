@@ -177,6 +177,24 @@ export type Email = {
   sent_at: string | null
   opened_at: string | null
   clicked_at: string | null
+  // 'A' or 'B' if an A/B subject line test was active for this step (added by migration 0010)
+  ab_variant_assigned: string | null
+}
+
+export type CampaignAbTest = {
+  id: string
+  campaign_id: string
+  sequence_number: 1 | 2 | 3 | 4
+  ab_test_enabled: boolean
+  subject_variant_a: string | null
+  subject_variant_b: string | null
+  ab_winner: 'A' | 'B' | 'inconclusive' | null
+  ab_winner_selected_at: string | null
+  ab_variant_a_opens: number
+  ab_variant_b_opens: number
+  ab_variant_a_sends: number
+  ab_variant_b_sends: number
+  first_send_at: string | null
 }
 
 export type SmsMessage = {

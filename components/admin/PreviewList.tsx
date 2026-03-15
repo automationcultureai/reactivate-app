@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Email, Lead, SmsMessage } from '@/lib/supabase'
+import { Email, Lead, SmsMessage, CampaignAbTest } from '@/lib/supabase'
 import { EmailEditor } from '@/components/admin/EmailEditor'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Mail,
   Layers,
+  FlaskConical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +31,7 @@ interface PreviewListProps {
   clientId: string
   channel: 'email' | 'sms' | 'both'
   leads: LeadPreviewData[]
+  initialAbTests?: CampaignAbTest[]
 }
 
 const BRANCH_TABS = ['unopened', 'opened', 'clicked'] as const
@@ -41,7 +43,7 @@ const BRANCH_TAB_LABELS: Record<BranchTab, string> = {
   clicked: 'Clicked',
 }
 
-export function PreviewList({ campaignId, clientId, channel, leads }: PreviewListProps) {
+export function PreviewList({ campaignId, clientId, channel, leads, initialAbTests = [] }: PreviewListProps) {
   const router = useRouter()
   const [expandedLeads, setExpandedLeads] = useState<Set<string>>(new Set())
   const [sending, setSending] = useState(false)
@@ -53,6 +55,70 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
 
   // Active branch tab per (leadId, sequenceNumber): key = `${leadId}-${seqNum}`
   const [branchTabs, setBranchTabs] = useState<Record<string, BranchTab>>({})
+
+  // A/B test state: seqNum → config
+  type AbConfig = { enabled: boolean; variantA: string; variantB: string; saving: boolean }
+  const initAbConfig = (): Record<number, AbConfig> => {
+    const cfg: Record<number, AbConfig> = {}
+    for (const seq of [1, 2, 3, 4]) {
+      const existing = initialAbTests.find((t) => t.sequence_number === seq)
+      cfg[seq] = {
+        enabled: existing?.ab_test_enabled ?? false,
+        variantA: existing?.subject_variant_a ?? '',
+        variantB: existing?.subject_variant_b ?? '',
+        saving: false,
+      }
+    }
+    return cfg
+  }
+  const [abConfig, setAbConfig] = useState<Record<number, AbConfig>>(initAbConfig)
+  // Debounce timers per sequence number
+  const abSaveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+
+  function updateAbConfig(seqNum: number, patch: Partial<AbConfig>) {
+    setAbConfig((prev) => ({ ...prev, [seqNum]: { ...prev[seqNum], ...patch } }))
+  }
+
+  async function saveAbConfig(seqNum: number, cfg: AbConfig) {
+    updateAbConfig(seqNum, { saving: true })
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/ab-test`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sequence_number: seqNum,
+          ab_test_enabled: cfg.enabled,
+          subject_variant_a: cfg.variantA || null,
+          subject_variant_b: cfg.variantB || null,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json()
+        toast.error(json.error ?? 'Failed to save A/B config')
+      }
+    } catch {
+      toast.error('Failed to save A/B config')
+    } finally {
+      updateAbConfig(seqNum, { saving: false })
+    }
+  }
+
+  function scheduleAbSave(seqNum: number, cfg: AbConfig) {
+    if (abSaveTimers.current[seqNum]) clearTimeout(abSaveTimers.current[seqNum])
+    abSaveTimers.current[seqNum] = setTimeout(() => saveAbConfig(seqNum, cfg), 800)
+  }
+
+  function handleAbToggle(seqNum: number, enabled: boolean) {
+    const next = { ...abConfig[seqNum], enabled }
+    updateAbConfig(seqNum, next)
+    scheduleAbSave(seqNum, next)
+  }
+
+  function handleAbSubject(seqNum: number, field: 'variantA' | 'variantB', value: string) {
+    const next = { ...abConfig[seqNum], [field]: value }
+    updateAbConfig(seqNum, next)
+    scheduleAbSave(seqNum, next)
+  }
 
   function toggleLead(leadId: string) {
     setExpandedLeads((prev) => {
@@ -130,6 +196,75 @@ export function PreviewList({ campaignId, clientId, channel, leads }: PreviewLis
           {sending ? 'Sending…' : 'Approve & Send'}
         </Button>
       </div>
+
+      {/* A/B subject line testing — email only */}
+      {(channel === 'email' || channel === 'both') && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 bg-muted/10 border-b border-border">
+            <FlaskConical className="w-3.5 h-3.5 text-muted-foreground" />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Subject line A/B testing
+            </p>
+            <p className="text-xs text-muted-foreground ml-1">— toggle per email step to split-test subject lines</p>
+          </div>
+          <div className="divide-y divide-border">
+            {([1, 2, 3, 4] as const).map((seqNum) => {
+              const cfg = abConfig[seqNum]
+              const seqLabel =
+                seqNum === 2 ? 'Email 2 (all variants)' :
+                seqNum === 3 ? 'Email 3 (all variants)' :
+                `Email ${seqNum}`
+              return (
+                <div key={seqNum} className="px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={cfg.enabled}
+                        onChange={(e) => handleAbToggle(seqNum, e.target.checked)}
+                        className="h-3.5 w-3.5 rounded accent-primary"
+                      />
+                      <span className="text-sm font-medium text-foreground">{seqLabel}</span>
+                    </label>
+                    {cfg.enabled && (
+                      <Badge variant="outline" className="text-xs text-violet-600 dark:text-violet-400 border-violet-500/30">
+                        A/B Active
+                      </Badge>
+                    )}
+                    {cfg.saving && (
+                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  {cfg.enabled && (
+                    <div className="grid grid-cols-2 gap-3 pl-5">
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground font-medium">Variant A</label>
+                        <input
+                          type="text"
+                          value={cfg.variantA}
+                          onChange={(e) => handleAbSubject(seqNum, 'variantA', e.target.value)}
+                          placeholder="Subject line A…"
+                          className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-muted-foreground font-medium">Variant B</label>
+                        <input
+                          type="text"
+                          value={cfg.variantB}
+                          onChange={(e) => handleAbSubject(seqNum, 'variantB', e.target.value)}
+                          placeholder="Subject line B…"
+                          className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Wave summary */}
       <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/10 flex-wrap">

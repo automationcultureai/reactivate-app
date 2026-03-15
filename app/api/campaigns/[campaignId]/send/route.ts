@@ -3,6 +3,7 @@ import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
 import { sendEmail, sendDelay } from '@/lib/gmail'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
+import { pickAbVariant } from '@/lib/ab-testing'
 
 // Allow up to 300 seconds on Vercel Pro
 // Note: 30–60s delay × leads means ~5–8 emails per invocation at max duration
@@ -77,7 +78,21 @@ export async function POST(
       )
     }
 
-    // 5. Fetch wave 1 pending leads for the initial send.
+    // 5a. Fetch A/B test config for Email 1 (if any)
+    const { data: abTest1 } = await supabase
+      .from('campaign_ab_tests')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .eq('sequence_number', 1)
+      .eq('ab_test_enabled', true)
+      .maybeSingle()
+
+    // Local counters — updated after each send to avoid repeated DB round-trips
+    let abASends = abTest1?.ab_variant_a_sends ?? 0
+    let abBSends = abTest1?.ab_variant_b_sends ?? 0
+    let abFirstSendAt: string | null = abTest1?.first_send_at ?? null
+
+    // 5b. Fetch wave 1 pending leads for the initial send.
     // Wave 2 and wave 3 leads are sent by the follow-up cron on days 3-4 and 5-6.
     const { data: leads } = await supabase
       .from('leads')
@@ -174,9 +189,33 @@ export async function POST(
             .single()
 
           if (email1) {
+            let subjectToSend = email1.subject
+            let abVariant: string | null = null
+
+            if (abTest1) {
+              // Use declared winner if available; otherwise randomly assign
+              const winner = abTest1.ab_winner as 'A' | 'B' | 'inconclusive' | null
+              abVariant = (winner === 'A' || winner === 'B') ? winner : pickAbVariant()
+              subjectToSend =
+                abVariant === 'A'
+                  ? (abTest1.subject_variant_a ?? email1.subject)
+                  : (abTest1.subject_variant_b ?? email1.subject)
+              if (!abFirstSendAt) abFirstSendAt = now
+              if (abVariant === 'A') { abASends++ } else { abBSends++ }
+              // Persist variant assignment and updated counts
+              await Promise.all([
+                supabase.from('emails').update({ ab_variant_assigned: abVariant }).eq('id', email1.id),
+                supabase.from('campaign_ab_tests').update({
+                  ab_variant_a_sends: abASends,
+                  ab_variant_b_sends: abBSends,
+                  first_send_at: abFirstSendAt,
+                }).eq('id', abTest1.id),
+              ])
+            }
+
             await sendEmail({
               to: lead.email,
-              subject: email1.subject,
+              subject: subjectToSend,
               body: email1.body,
               bookingUrl,
               replyTo: clientEmail,
@@ -189,7 +228,7 @@ export async function POST(
             await supabase.from('lead_events').insert({
               lead_id: lead.id,
               event_type: 'email_sent',
-              description: `Email 1 sent to ${lead.email}`,
+              description: `Email 1 sent to ${lead.email}${abVariant ? ` (A/B variant ${abVariant})` : ''}`,
             })
             emailSent = true
           }
