@@ -17,6 +17,7 @@ import {
   Mail,
   Layers,
   FlaskConical,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +56,9 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
 
   // Active branch tab per (leadId, sequenceNumber): key = `${leadId}-${seqNum}`
   const [branchTabs, setBranchTabs] = useState<Record<string, BranchTab>>({})
+
+  // A/B generating state per sequence number
+  const [abGenerating, setAbGenerating] = useState<Record<number, boolean>>({})
 
   // A/B test state: seqNum → config
   type AbConfig = { enabled: boolean; variantA: string; variantB: string; saving: boolean }
@@ -118,6 +122,29 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
     const next = { ...abConfig[seqNum], [field]: value }
     updateAbConfig(seqNum, next)
     scheduleAbSave(seqNum, next)
+  }
+
+  async function handleAbGenerate(seqNum: number) {
+    setAbGenerating((prev) => ({ ...prev, [seqNum]: true }))
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/ab-test/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequence_number: seqNum }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to generate subject lines')
+        return
+      }
+      const next = { ...abConfig[seqNum], variantA: json.variant_a, variantB: json.variant_b }
+      updateAbConfig(seqNum, next)
+      scheduleAbSave(seqNum, next)
+    } catch {
+      toast.error('Failed to generate subject lines')
+    } finally {
+      setAbGenerating((prev) => ({ ...prev, [seqNum]: false }))
+    }
   }
 
   function toggleLead(leadId: string) {
@@ -230,6 +257,21 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
                       <Badge variant="outline" className="text-xs text-violet-600 dark:text-violet-400 border-violet-500/30">
                         A/B Active
                       </Badge>
+                    )}
+                    {cfg.enabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleAbGenerate(seqNum)}
+                        disabled={abGenerating[seqNum]}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {abGenerating[seqNum] ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-3 h-3" />
+                        )}
+                        {abGenerating[seqNum] ? 'Generating…' : 'Generate with AI'}
+                      </button>
                     )}
                     {cfg.saving && (
                       <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
