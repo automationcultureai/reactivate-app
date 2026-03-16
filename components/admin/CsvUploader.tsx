@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { parseLeadsCsv, CsvParseResult } from '@/lib/csv'
 import { Button } from '@/components/ui/button'
-import { Upload, CheckCircle, AlertCircle, X } from 'lucide-react'
+import { Upload, CheckCircle, AlertCircle, X, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface CsvUploaderProps {
@@ -12,6 +12,21 @@ interface CsvUploaderProps {
 }
 
 const DAILY_SEND_THRESHOLD = 150
+
+const SAMPLE_CSV = `name,email,phone,last_contact_date,service_type,purchase_value,notes,last_purchase_date,purchase_count,lifetime_value
+Jane Smith,jane@example.com,0412345678,2024-06-01,Haircut,85,Loyal customer,2024-05-15,12,1020.00
+Mark Johnson,mark@example.com,0423456789,2023-11-20,Color & Blow Dry,140,,2023-10-10,5,700.00
+Sarah Lee,sarah@example.com,0434567890,2022-08-05,Keratin Treatment,320,Prefers morning appointments,2022-07-01,3,960.00`
+
+function downloadSampleCsv() {
+  const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'sample-leads.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function CsvUploader({ channel, onParsed }: CsvUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -190,6 +205,18 @@ export function CsvUploader({ channel, onParsed }: CsvUploaderProps) {
             ) : null
           })()}
         </div>
+      )}
+
+      {/* Sample CSV download */}
+      {!result && (
+        <button
+          type="button"
+          onClick={downloadSampleCsv}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Download sample CSV
+        </button>
       )}
 
       <input

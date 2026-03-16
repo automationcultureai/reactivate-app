@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getSupabaseClient } from '@/lib/supabase'
-import { ClientTable } from '@/components/admin/ClientTable'
+import { ClientsPageClient } from '@/components/admin/ClientsPageClient'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/lib/button-variants'
 import { Plus, AlertCircle } from 'lucide-react'
@@ -67,8 +67,8 @@ export default async function ClientsPage() {
         </Link>
       </div>
 
-      {/* Client table */}
-      <ClientTable clients={safeClients} />
+      {/* Client table with search */}
+      <ClientsPageClient clients={safeClients} />
     </div>
   )
 }
