@@ -24,6 +24,7 @@ import {
   Layers,
   FlaskConical,
   Sparkles,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
