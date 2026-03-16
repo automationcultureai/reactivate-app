@@ -25,7 +25,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className={inter.variable} suppressHydrationWarning>
         <body className="font-sans antialiased bg-background text-foreground">
-          <NextTopLoader color="hsl(var(--primary))" showSpinner={false} height={2} />
+          <NextTopLoader color="#818cf8" showSpinner={false} height={3} />
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"
