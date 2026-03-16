@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Email, Lead, SmsMessage, CampaignAbTest } from '@/lib/supabase'
@@ -24,7 +24,6 @@ import {
   Layers,
   FlaskConical,
   Sparkles,
-  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -443,23 +442,18 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
                       <div className="grid gap-3">
                         {/* Email 1 — always single */}
                         {email1 && (
-                          <EmailRowWithView
-                            subject={emailEdits[email1.id]?.subject ?? email1.subject}
-                            body={emailEdits[email1.id]?.body ?? email1.body}
-                            onView={setViewingEmail}
-                          >
-                            <EmailEditor
-                              key={email1.id}
-                              emailId={email1.id}
-                              campaignId={campaignId}
-                              sequenceNumber={1}
-                              initialSubject={emailEdits[email1.id]?.subject ?? email1.subject}
-                              initialBody={emailEdits[email1.id]?.body ?? email1.body}
-                              onUpdated={(subject, body) =>
-                                handleEmailUpdated(email1.id, subject, body)
-                              }
-                            />
-                          </EmailRowWithView>
+                          <EmailEditor
+                            key={email1.id}
+                            emailId={email1.id}
+                            campaignId={campaignId}
+                            sequenceNumber={1}
+                            initialSubject={emailEdits[email1.id]?.subject ?? email1.subject}
+                            initialBody={emailEdits[email1.id]?.body ?? email1.body}
+                            onUpdated={(subject, body) =>
+                              handleEmailUpdated(email1.id, subject, body)
+                            }
+                            onView={(subject, body) => setViewingEmail({ subject, body })}
+                          />
                         )}
 
                         {/* Email 2 — branched tabs or single */}
@@ -496,23 +490,18 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
                             (e) => e.sequence_number === 4 && e.branch_variant === null
                           ) ?? emails.find((e) => e.sequence_number === 4)
                           return email4 ? (
-                            <EmailRowWithView
-                              subject={emailEdits[email4.id]?.subject ?? email4.subject}
-                              body={emailEdits[email4.id]?.body ?? email4.body}
-                              onView={setViewingEmail}
-                            >
-                              <EmailEditor
-                                key={email4.id}
-                                emailId={email4.id}
-                                campaignId={campaignId}
-                                sequenceNumber={4}
-                                initialSubject={emailEdits[email4.id]?.subject ?? email4.subject}
-                                initialBody={emailEdits[email4.id]?.body ?? email4.body}
-                                onUpdated={(subject, body) =>
-                                  handleEmailUpdated(email4.id, subject, body)
-                                }
-                              />
-                            </EmailRowWithView>
+                            <EmailEditor
+                              key={email4.id}
+                              emailId={email4.id}
+                              campaignId={campaignId}
+                              sequenceNumber={4}
+                              initialSubject={emailEdits[email4.id]?.subject ?? email4.subject}
+                              initialBody={emailEdits[email4.id]?.body ?? email4.body}
+                              onUpdated={(subject, body) =>
+                                handleEmailUpdated(email4.id, subject, body)
+                              }
+                              onView={(subject, body) => setViewingEmail({ subject, body })}
+                            />
                           ) : null
                         })()}
                       </div>
@@ -581,39 +570,11 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
               {viewingEmail?.subject}
             </DialogTitle>
           </DialogHeader>
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none text-sm text-foreground leading-relaxed pt-2"
-            dangerouslySetInnerHTML={{ __html: viewingEmail?.body ?? '' }}
-          />
+          <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap pt-2">
+            {viewingEmail?.body ?? ''}
+          </p>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-// ─── EmailRowWithView ─────────────────────────────────────────────────────────
-// Wraps an EmailEditor with a small "View" eye-icon button that opens a
-// read-only preview dialog at the PreviewList level.
-
-interface EmailRowWithViewProps {
-  subject: string
-  body: string
-  onView: (email: { subject: string; body: string }) => void
-  children: React.ReactNode
-}
-
-function EmailRowWithView({ subject, body, onView, children }: EmailRowWithViewProps) {
-  return (
-    <div className="relative group/view">
-      {children}
-      <button
-        type="button"
-        onClick={() => onView({ subject, body })}
-        className="absolute top-2 right-2 p-1 rounded text-muted-foreground opacity-0 group-hover/view:opacity-100 hover:text-foreground hover:bg-muted/50 transition-all"
-        title="Preview email"
-      >
-        <Eye className="w-3.5 h-3.5" />
-      </button>
     </div>
   )
 }
@@ -654,21 +615,16 @@ function BranchedEmailStep({
   if (!isBranched || variants.length === 1) {
     const email = variants[0]
     return (
-      <EmailRowWithView
-        subject={emailEdits[email.id]?.subject ?? email.subject}
-        body={emailEdits[email.id]?.body ?? email.body}
-        onView={onView}
-      >
-        <EmailEditor
-          key={email.id}
-          emailId={email.id}
-          campaignId={campaignId}
-          sequenceNumber={seqNum}
-          initialSubject={emailEdits[email.id]?.subject ?? email.subject}
-          initialBody={emailEdits[email.id]?.body ?? email.body}
-          onUpdated={(subject, body) => onUpdated(email.id, subject, body)}
-        />
-      </EmailRowWithView>
+      <EmailEditor
+        key={email.id}
+        emailId={email.id}
+        campaignId={campaignId}
+        sequenceNumber={seqNum}
+        initialSubject={emailEdits[email.id]?.subject ?? email.subject}
+        initialBody={emailEdits[email.id]?.body ?? email.body}
+        onUpdated={(subject, body) => onUpdated(email.id, subject, body)}
+        onView={(subject, body) => onView({ subject, body })}
+      />
     )
   }
 
@@ -704,21 +660,16 @@ function BranchedEmailStep({
       {/* Active variant */}
       <div className="p-3">
         {activeVariant ? (
-          <EmailRowWithView
-            subject={emailEdits[activeVariant.id]?.subject ?? activeVariant.subject}
-            body={emailEdits[activeVariant.id]?.body ?? activeVariant.body}
-            onView={onView}
-          >
-            <EmailEditor
-              key={`${leadId}-${seqNum}-${activeTab}`}
-              emailId={activeVariant.id}
-              campaignId={campaignId}
-              sequenceNumber={seqNum}
-              initialSubject={emailEdits[activeVariant.id]?.subject ?? activeVariant.subject}
-              initialBody={emailEdits[activeVariant.id]?.body ?? activeVariant.body}
-              onUpdated={(subject, body) => onUpdated(activeVariant.id, subject, body)}
-            />
-          </EmailRowWithView>
+          <EmailEditor
+            key={`${leadId}-${seqNum}-${activeTab}`}
+            emailId={activeVariant.id}
+            campaignId={campaignId}
+            sequenceNumber={seqNum}
+            initialSubject={emailEdits[activeVariant.id]?.subject ?? activeVariant.subject}
+            initialBody={emailEdits[activeVariant.id]?.body ?? activeVariant.body}
+            onUpdated={(subject, body) => onUpdated(activeVariant.id, subject, body)}
+            onView={(subject, body) => onView({ subject, body })}
+          />
         ) : (
           <p className="text-xs text-muted-foreground py-2">No variant found.</p>
         )}

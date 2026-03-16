@@ -13,10 +13,10 @@ interface CsvUploaderProps {
 
 const DAILY_SEND_THRESHOLD = 150
 
-const SAMPLE_CSV = `name,email,phone,last_contact_date,service_type,purchase_value,notes,last_purchase_date,purchase_count,lifetime_value
-Jane Smith,jane@example.com,0412345678,2024-06-01,Haircut,85,Loyal customer,2024-05-15,12,1020.00
-Mark Johnson,mark@example.com,0423456789,2023-11-20,Color & Blow Dry,140,,2023-10-10,5,700.00
-Sarah Lee,sarah@example.com,0434567890,2022-08-05,Keratin Treatment,320,Prefers morning appointments,2022-07-01,3,960.00`
+const SAMPLE_CSV = `name,email,phone,service_type,last_contact_date,purchase_value,last_purchase_date,purchase_count,lifetime_value,notes
+Jane Smith,jane@example.com,0412345678,Haircut,2024-06-01,85,2024-05-15,12,1020.00,Loyal customer
+Mark Johnson,mark@example.com,0423456789,Color & Blow Dry,2023-11-20,140,2023-10-10,5,700.00,
+Sarah Lee,sarah@example.com,0434567890,Keratin Treatment,2022-08-05,320,2022-07-01,3,960.00,Prefers morning appointments`
 
 function downloadSampleCsv() {
   const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' })

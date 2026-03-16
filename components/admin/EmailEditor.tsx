@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Loader2, Pencil, X, Check } from 'lucide-react'
+import { Loader2, Pencil, X, Check, Eye } from 'lucide-react'
 
 interface EmailEditorProps {
   emailId: string
@@ -15,6 +15,7 @@ interface EmailEditorProps {
   initialSubject: string
   initialBody: string
   onUpdated: (subject: string, body: string) => void
+  onView?: (subject: string, body: string) => void
 }
 
 const SEQUENCE_LABELS = ['Initial', 'Follow-up', 'Final follow-up', 'Re-engagement']
@@ -26,6 +27,7 @@ export function EmailEditor({
   initialSubject,
   initialBody,
   onUpdated,
+  onView,
 }: EmailEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [subject, setSubject] = useState(initialSubject)
@@ -83,9 +85,16 @@ export function EmailEditor({
           Email {sequenceNumber} — {label}
         </span>
         {!isEditing ? (
-          <Button variant="ghost" size="icon-sm" onClick={startEdit} title="Edit">
-            <Pencil className="w-3 h-3" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onView && (
+              <Button variant="ghost" size="icon-sm" onClick={() => onView(subject, body)} title="Preview">
+                <Eye className="w-3 h-3" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon-sm" onClick={startEdit} title="Edit">
+              <Pencil className="w-3 h-3" />
+            </Button>
+          </div>
         ) : (
           <div className="flex items-center gap-1">
             <Button
