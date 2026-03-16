@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from '@/components/ui/sonner'
+import NextTopLoader from 'nextjs-toploader'
 import './globals.css'
 
 const inter = Inter({
@@ -24,6 +25,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className={inter.variable} suppressHydrationWarning>
         <body className="font-sans antialiased bg-background text-foreground">
+          <NextTopLoader color="hsl(var(--primary))" showSpinner={false} height={2} />
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"
