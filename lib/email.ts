@@ -144,7 +144,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     from: getFromAddress(),
     to,
     subject,
-    reply_to: replyTo,
+    replyTo: replyTo,
     text: buildPlainText(body, bookingUrl, leadToken, clientBusinessName, clientBusinessAddress),
     html: buildHtmlEmail(body, bookingUrl, emailId, leadToken, clientBusinessName, clientBusinessAddress),
     headers: {
@@ -198,7 +198,7 @@ export async function sendBookingConfirmation(options: {
     from: getFromAddress(),
     to,
     subject: `Booking confirmed with ${clientName}`,
-    reply_to: replyTo,
+    replyTo: replyTo,
     html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;">
@@ -249,7 +249,7 @@ export async function sendBookingReminder(options: {
     from: getFromAddress(),
     to,
     subject: `Reminder: Your appointment with ${clientName} is tomorrow`,
-    reply_to: replyTo,
+    replyTo: replyTo,
     html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;">
