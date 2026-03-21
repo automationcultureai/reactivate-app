@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
-import { sendEmail, sendDelay } from '@/lib/gmail'
+import { sendEmail, sendDelay } from '@/lib/email'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 import { sendAdminAlert } from '@/lib/alert'
 import { pickAbVariant, evaluateAbWinner } from '@/lib/ab-testing'

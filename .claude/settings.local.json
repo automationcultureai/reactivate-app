@@ -105,7 +105,23 @@
       "Bash(npm uninstall nodemailer @types/nodemailer)",
       "Bash(npm install nodemailer @types/nodemailer)",
       "Bash(npm uninstall resend)",
-      "Bash(node_modules/typescript/bin/tsc --noEmit)"
+      "Bash(node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node_modules/.bin/next build)",
+      "Bash(git add app/admin/clients/[clientId]/campaigns/[campaignId]/preview/page.tsx app/api/campaigns/[campaignId]/ab-test/route.ts app/api/campaigns/[campaignId]/send/route.ts app/api/cron/follow-up/route.ts app/api/track/open/[emailId]/route.ts components/admin/PreviewList.tsx lib/ab-testing.ts lib/supabase.ts supabase/migrations/0010_ab_testing.sql)",
+      "Bash(git push)",
+      "Bash(ls /Users/nico/Desktop/reactivate-app/app/api/campaigns/[campaignId]/ab-test/)",
+      "Bash(git add app/api/campaigns/[campaignId]/ab-test/generate/route.ts components/admin/PreviewList.tsx)",
+      "Bash(grep -l \"Dialog\" /Users/nico/Desktop/reactivate-app/components/ui/*.tsx)",
+      "Bash(git add components/admin/ClientsPageClient.tsx components/admin/CsvUploader.tsx components/admin/PreviewList.tsx app/admin/clients/page.tsx)",
+      "Bash(git add components/admin/EmailEditor.tsx components/admin/PreviewList.tsx components/admin/CsvUploader.tsx)",
+      "Bash(git add components/admin/PreviewList.tsx)",
+      "Bash(npm install nextjs-toploader)",
+      "Bash(git add app/layout.tsx package.json package-lock.json)",
+      "Bash(git add app/layout.tsx)",
+      "Bash(while read:*)",
+      "Bash(do sed:*)",
+      "Bash(done)",
+      "Bash(npx next:*)"
     ]
   }
 }

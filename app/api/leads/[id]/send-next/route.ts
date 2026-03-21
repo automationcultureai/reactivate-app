@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
-import { sendEmail } from '@/lib/gmail'
+import { sendEmail } from '@/lib/email'
 
 export async function POST(
   _req: NextRequest,

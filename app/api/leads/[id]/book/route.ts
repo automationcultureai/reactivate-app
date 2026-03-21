@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSupabaseClient } from '@/lib/supabase'
 import { createBooking, isCalendarConfigured } from '@/lib/calendar'
-import { sendBookingConfirmation, sendClientBookingNotification } from '@/lib/gmail'
+import { sendBookingConfirmation, sendClientBookingNotification } from '@/lib/email'
 
 const bookingSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),

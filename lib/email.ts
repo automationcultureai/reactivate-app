@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
 // ============================================================
 // Types
@@ -19,21 +19,17 @@ export interface SendEmailOptions {
 }
 
 // ============================================================
-// Nodemailer transport
+// Resend client
 // ============================================================
 
-function getTransport() {
-  const user = process.env.GMAIL_USER
-  const pass = process.env.GMAIL_APP_PASSWORD
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) throw new Error('RESEND_API_KEY environment variable is required')
+  return new Resend(apiKey)
+}
 
-  if (!user || !pass) {
-    throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD environment variables are required')
-  }
-
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user, pass },
-  })
+function getFromAddress() {
+  return process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 }
 
 // ============================================================
@@ -122,7 +118,7 @@ Privacy: ${appUrl}/privacy`
 }
 
 // ============================================================
-// sendEmail — sends one email via Gmail SMTP
+// sendEmail — sends one campaign email via Resend
 // Sets Reply-To, legal footer, tracking pixel server-side.
 // Non-skippable per AI_rules.md.
 // ============================================================
@@ -140,15 +136,15 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     clientBusinessAddress,
   } = options
 
-  const transport = getTransport()
+  const resend = getResend()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
 
-  await transport.sendMail({
-    from: process.env.GMAIL_USER,
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
     to,
     subject,
-    replyTo,
+    reply_to: replyTo,
     text: buildPlainText(body, bookingUrl, leadToken, clientBusinessName, clientBusinessAddress),
     html: buildHtmlEmail(body, bookingUrl, emailId, leadToken, clientBusinessName, clientBusinessAddress),
     headers: {
@@ -156,11 +152,13 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
   })
+
+  if (error) throw new Error(`Resend error: ${error.message}`)
 }
 
 // ============================================================
 // sendDelay — randomised 30–60 second delay between sends
-// Required by AI_rules.md for Gmail deliverability protection.
+// Kept for bulk send deliverability protection.
 // ============================================================
 
 export function sendDelay(): Promise<void> {
@@ -195,8 +193,13 @@ export async function sendBookingConfirmation(options: {
     minute: '2-digit',
   })
 
-  const subject = `Booking confirmed with ${clientName}`
-  const html = `<!DOCTYPE html>
+  const resend = getResend()
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
+    to,
+    subject: `Booking confirmed with ${clientName}`,
+    reply_to: replyTo,
+    html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;">
   <h2 style="margin:0 0 16px;">Your booking is confirmed</h2>
@@ -208,17 +211,11 @@ export async function sendBookingConfirmation(options: {
     ${agencyName}${agencyAddress ? ` · ${agencyAddress}` : ''}<br>
     <a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a>
   </p>
-</body></html>`
-
-  const transport = getTransport()
-  await transport.sendMail({
-    from: process.env.GMAIL_USER,
-    to,
-    subject,
-    replyTo,
-    html,
+</body></html>`,
     text: `Your booking is confirmed\n\nYour appointment with ${clientName} is booked for ${formatted}.\n\n---\n${agencyName}\nUnsubscribe: ${unsubscribeUrl}`,
   })
+
+  if (error) throw new Error(`Resend error: ${error.message}`)
 }
 
 // ============================================================
@@ -247,8 +244,13 @@ export async function sendBookingReminder(options: {
     minute: '2-digit',
   })
 
-  const subject = `Reminder: Your appointment with ${clientName} is tomorrow`
-  const html = `<!DOCTYPE html>
+  const resend = getResend()
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
+    to,
+    subject: `Reminder: Your appointment with ${clientName} is tomorrow`,
+    reply_to: replyTo,
+    html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;">
   <h2 style="margin:0 0 16px;">Appointment reminder</h2>
@@ -260,17 +262,11 @@ export async function sendBookingReminder(options: {
     ${agencyName}${agencyAddress ? ` · ${agencyAddress}` : ''}<br>
     <a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a>
   </p>
-</body></html>`
-
-  const transport = getTransport()
-  await transport.sendMail({
-    from: process.env.GMAIL_USER,
-    to,
-    subject,
-    replyTo,
-    html,
+</body></html>`,
     text: `Appointment reminder\n\nYour appointment with ${clientName} is scheduled for ${formatted}.\n\n---\n${agencyName}\nUnsubscribe: ${unsubscribeUrl}`,
   })
+
+  if (error) throw new Error(`Resend error: ${error.message}`)
 }
 
 // ============================================================
@@ -296,12 +292,11 @@ export async function sendClientBookingNotification(options: {
     minute: '2-digit',
   })
 
-  const subject = `New booking: ${leadName}`
-  const transport = getTransport()
-  await transport.sendMail({
-    from: process.env.GMAIL_USER,
+  const resend = getResend()
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
     to,
-    subject,
+    subject: `New booking: ${leadName}`,
     html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;">
@@ -313,4 +308,6 @@ export async function sendClientBookingNotification(options: {
 </body></html>`,
     text: `New booking: ${leadName}\n\n${leadName} has booked for ${formatted}.\n\nView in dashboard: ${dashboardUrl}\n\n---\n${agencyName}`,
   })
+
+  if (error) throw new Error(`Resend error: ${error.message}`)
 }

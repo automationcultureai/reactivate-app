@@ -1,4 +1,4 @@
-import { sendEmail } from '@/lib/gmail'
+import { sendEmail } from '@/lib/email'
 import { getSupabaseClient } from '@/lib/supabase'
 
 export interface RetrySendResult {

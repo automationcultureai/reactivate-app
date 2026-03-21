@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
-import { sendBookingReminder } from '@/lib/gmail'
+import { sendBookingReminder } from '@/lib/email'
 import { sendAdminAlert } from '@/lib/alert'
 
 export const maxDuration = 300

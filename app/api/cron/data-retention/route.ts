@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseClient } from '@/lib/supabase'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
 export const maxDuration = 300
 
@@ -16,17 +16,18 @@ function verifyCronSecret(req: NextRequest): boolean {
  * Non-fatal — if email fails, the anonymisation still succeeded.
  */
 async function sendAdminNotification(count: number, skipped: number): Promise<void> {
-  const user = process.env.GMAIL_USER
-  const pass = process.env.GMAIL_APP_PASSWORD
-  if (!user || !pass) return
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.RESEND_FROM_EMAIL
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+  if (!apiKey || !from || !adminEmail) return
 
-  const transport = nodemailer.createTransport({ service: 'gmail', auth: { user, pass } })
+  const resend = new Resend(apiKey)
   const agencyName = process.env.AGENCY_NAME || 'Reactivate Agency'
   const retentionMonths = process.env.DATA_RETENTION_MONTHS || '12'
 
-  await transport.sendMail({
-    from: user,
-    to: user,
+  await resend.emails.send({
+    from,
+    to: adminEmail,
     subject: `[${agencyName}] Monthly data retention — ${count} records anonymised`,
     text: [
       `Monthly data retention cron completed.`,
