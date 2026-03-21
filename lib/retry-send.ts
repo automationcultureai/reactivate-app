@@ -103,7 +103,7 @@ export async function retryEmailSend(sendFailureId: string): Promise<RetrySendRe
     business_address: string | null
   } | null
 
-  const clientEmail = clientData?.email ?? (process.env.GMAIL_USER ?? '')
+  const clientEmail = clientData?.email ?? ''
   const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
   const clientBusinessAddress = clientData?.business_address ?? undefined
   const bookingUrl = `${appUrl}/book/${lead.booking_token}`

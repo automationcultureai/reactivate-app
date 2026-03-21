@@ -64,7 +64,7 @@ export async function POST(
     }
 
     const clientData = campaign.clients
-    const clientEmail = clientData?.email ?? (process.env.GMAIL_USER ?? '')
+    const clientEmail = clientData?.email ?? ''
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''

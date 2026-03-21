@@ -48,7 +48,7 @@ export async function POST(
       business_name: string | null
       business_address: string | null
     } | null
-    const clientEmail = clientData?.email ?? (process.env.GMAIL_USER ?? '')
+    const clientEmail = clientData?.email ?? ''
     // Use client's business details for email footer — fall back to env vars if not set
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
