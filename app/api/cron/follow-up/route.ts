@@ -15,6 +15,22 @@ const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
+const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000
+
+// Returns current hour (0-23) and day-of-week (0=Sun) in Australia/Sydney timezone.
+// Uses en-US locale so Date constructor reliably parses the string.
+function getSydneyTime(): { hour: number; dayOfWeek: number } {
+  const sydneyDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }))
+  return { hour: sydneyDate.getHours(), dayOfWeek: sydneyDate.getDay() }
+}
+
+// SMS is only allowed Mon–Sat, 9am–7pm AEST/AEDT.
+// Outside this window the cron defers — timing thresholds are in days so a 24hr
+// slip has no meaningful impact on conversion.
+function isSmsAllowedNow(): boolean {
+  const { hour, dayOfWeek } = getSydneyTime()
+  return dayOfWeek !== 0 && hour >= 9 && hour < 19
+}
 
 function verifyCronSecret(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -317,19 +333,44 @@ export async function POST(req: NextRequest) {
       }
 
       // For channel='both': independently determine which SMS to send.
-      // Gate: corresponding email (same seq number) was sent, not opened, and 48hrs have elapsed.
-      // This runs independently of emailToSend/sequenceNumber — SMS timing differs from email timing.
+      // Runs independently of emailToSend/sequenceNumber — SMS timing differs from email timing.
+      //
+      // SMS 4 (click re-engagement): fires 24hrs after click regardless of email open status.
+      // SMS 1-3: fires when the corresponding email was sent AND not clicked:
+      //   - Unopened after 48hrs → SMS fires (different angle to email)
+      //   - Opened but not clicked after 72hrs → SMS fires (warm lead, needs push)
+      //   - Clicked → SMS skipped (lead is actively engaging)
       let smsBothSeq: number | undefined
       if (hasEmail && hasSms) {
         const smsMap = smsByLead.get(lead.id) ?? {}
-        for (const seqNum of [1, 2, 3, 4] as const) {
-          const smsN = smsMap[seqNum]
-          if (!smsN || smsN.sent_at) continue // already sent or no slot
-          const sentEmail = leadEmails.find(e => e.sequence_number === seqNum && e.sent_at != null)
-          if (!sentEmail || sentEmail.opened_at != null) continue // not sent yet, or was opened
-          if (now - new Date(sentEmail.sent_at!).getTime() >= FORTY_EIGHT_HOURS_MS) {
-            smsBothSeq = seqNum
-            break
+
+        // SMS 4: independent click re-engagement trigger (fires before Email 4)
+        if (lead.status === 'clicked') {
+          const sms4 = smsMap[4]
+          const lastClick = lastClickByLead.get(lead.id)
+          if (sms4 && !sms4.sent_at && lastClick && now - lastClick >= TWENTY_FOUR_HOURS_MS) {
+            smsBothSeq = 4
+          }
+        }
+
+        // SMS 1-3: gate on email engagement state
+        if (smsBothSeq == null) {
+          for (const seqNum of [1, 2, 3] as const) {
+            const smsN = smsMap[seqNum]
+            if (!smsN || smsN.sent_at) continue // already sent or no slot
+            const sentEmail = leadEmails.find(e => e.sequence_number === seqNum && e.sent_at != null)
+            if (!sentEmail) continue // corresponding email not sent yet
+            if (sentEmail.clicked_at != null) continue // lead clicked — they're engaged, skip SMS
+            const msSinceEmail = now - new Date(sentEmail.sent_at!).getTime()
+            if (sentEmail.opened_at == null && msSinceEmail >= FORTY_EIGHT_HOURS_MS) {
+              // Unopened after 48hrs
+              smsBothSeq = seqNum
+              break
+            } else if (sentEmail.opened_at != null && msSinceEmail >= SEVENTY_TWO_HOURS_MS) {
+              // Opened but not clicked after 72hrs
+              smsBothSeq = seqNum
+              break
+            }
           }
         }
       }
@@ -403,10 +444,11 @@ export async function POST(req: NextRequest) {
       }
 
       // Send SMS follow-up
-      // For channel='both': use smsBothSeq (48hr gate on corresponding email).
+      // For channel='both': use smsBothSeq (engagement-aware gate).
       // For channel='sms': use sequenceNumber (existing timing rules).
+      // Time-of-day gate: only send Mon–Sat 9am–7pm AEST/AEDT (defers to next cron run if outside).
       const effectiveSmsSeq = (hasEmail && hasSms) ? smsBothSeq : sequenceNumber
-      if (hasSms && effectiveSmsSeq != null && lead.phone && !lead.sms_opt_out && isTwilioConfigured()) {
+      if (hasSms && effectiveSmsSeq != null && lead.phone && !lead.sms_opt_out && isTwilioConfigured() && isSmsAllowedNow()) {
         const smsMap = smsByLead.get(lead.id) ?? {}
         const smsToSend = smsMap[effectiveSmsSeq]
         if (smsToSend && !smsToSend.sent_at) {
