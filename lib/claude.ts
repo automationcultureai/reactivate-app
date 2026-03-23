@@ -242,6 +242,12 @@ Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
     messages: [{ role: 'user', content: prompt }],
   })
 
+  if (message.stop_reason === 'max_tokens') {
+    throw new Error(
+      `Claude hit the token limit generating SMS for ${lead.name} — output was truncated. Increase max_tokens or shorten the prompt.`
+    )
+  }
+
   const rawText = message.content[0]?.type === 'text' ? message.content[0].text : ''
   const jsonStr = extractJsonFromText(rawText)
 
