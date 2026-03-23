@@ -64,5 +64,6 @@ export function verifyWebhookSignature(
 ): boolean {
   const authToken = process.env.TWILIO_AUTH_TOKEN
   if (!authToken) return false
+  if (!signature) return false
   return twilio.validateRequest(authToken, signature, url, params)
 }
