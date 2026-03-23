@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabaseClient()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const maxSendRetries = parseInt(process.env.MAX_SEND_RETRIES ?? '3', 10)
   const dailyLimit = parseInt(process.env.DAILY_SEND_LIMIT ?? '150', 10)
 

@@ -16,7 +16,7 @@ export interface RetrySendResult {
 export async function retryEmailSend(sendFailureId: string): Promise<RetrySendResult> {
   const supabase = getSupabaseClient()
   const maxSendRetries = parseInt(process.env.MAX_SEND_RETRIES ?? '3', 10)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
 
   // 1. Fetch the failure record
   const { data: failure, error: failureError } = await supabase

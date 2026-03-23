@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Verify Twilio signature — reject if invalid
     const signature = req.headers.get('x-twilio-signature') ?? ''
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const webhookUrl = `${appUrl}/api/webhooks/twilio`
 
     if (!verifyWebhookSignature(signature, webhookUrl, params)) {

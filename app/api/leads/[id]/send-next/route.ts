@@ -83,7 +83,7 @@ export async function POST(
     const clientEmail = clientData?.email ?? ''
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const bookingUrl = `${appUrl}/book/${lead.booking_token}`
     const now = new Date().toISOString()
 

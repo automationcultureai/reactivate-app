@@ -137,7 +137,7 @@ export async function POST(
     // 9. Notify client of new booking
     if (campaign?.notify_client) {
       try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
         await sendClientBookingNotification({
           to: client.email,
           leadName: name,

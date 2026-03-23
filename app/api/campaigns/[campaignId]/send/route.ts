@@ -52,7 +52,7 @@ export async function POST(
     // Use client's business details for email footer — fall back to env vars if not set
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const channel = campaign.channel as 'email' | 'sms' | 'both'
 
     // 4. Count emails sent today (all campaigns) to enforce DAILY_SEND_LIMIT

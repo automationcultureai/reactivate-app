@@ -45,7 +45,7 @@ function buildHtmlEmail(
   clientBusinessName?: string,
   clientBusinessAddress?: string
 ): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   // Client business details take priority — agency env vars are fallback only
   const agencyName = clientBusinessName ?? process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = clientBusinessAddress ?? process.env.AGENCY_ADDRESS ?? ''
@@ -102,7 +102,7 @@ function buildPlainText(
   clientBusinessName?: string,
   clientBusinessAddress?: string
 ): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const agencyName = clientBusinessName ?? process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = clientBusinessAddress ?? process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
@@ -137,7 +137,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   } = options
 
   const resend = getResend()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
 
   const { error } = await resend.emails.send({
@@ -178,7 +178,7 @@ export async function sendBookingConfirmation(options: {
   leadToken: string
 }): Promise<void> {
   const { to, replyTo, clientName, scheduledAt, leadToken } = options
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const agencyName = process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
@@ -230,7 +230,7 @@ export async function sendBookingReminder(options: {
   leadToken: string
 }): Promise<void> {
   const { to, replyTo, clientName, scheduledAt, leadToken } = options
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   const agencyName = process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`

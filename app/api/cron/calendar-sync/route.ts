@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabaseClient()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
 
   // Fetch all "booked" bookings that have a Google Calendar event ID
   // Join to clients to get google_calendar_id + email details
