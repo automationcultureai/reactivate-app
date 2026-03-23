@@ -128,7 +128,7 @@ export async function POST(
             subject: nextEmail.subject,
             body: nextEmail.body,
             bookingUrl,
-            replyTo: client?.email,
+            replyTo: client?.email ?? undefined,
             emailId: nextEmail.id,
             leadToken: lead.booking_token,
             clientBusinessName,
