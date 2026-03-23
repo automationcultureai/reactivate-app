@@ -58,16 +58,20 @@ function buildInstructionsBlock(customInstructions: string | null): string {
 }
 
 function extractJsonFromText(text: string): string {
-  // Strip markdown code fences if Claude wrapped the JSON
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const trimmed = text.trim()
+  // 1. Try direct parse — Claude usually returns pure JSON with no preamble
+  try { JSON.parse(trimmed); return trimmed } catch {}
+  // 2. Strip markdown code fences
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) return fenceMatch[1].trim()
-  // Find the first {...} object block
-  const objectMatch = text.match(/\{[\s\S]*\}/)
-  if (objectMatch) return objectMatch[0]
-  // Find the first [...] array block
-  const arrayMatch = text.match(/\[[\s\S]*\]/)
+  // 3. Array before object — SMS sequences return arrays and the object regex
+  //    strips the outer [] brackets, producing invalid JSON
+  const arrayMatch = trimmed.match(/\[[\s\S]*\]/)
   if (arrayMatch) return arrayMatch[0]
-  return text.trim()
+  // 4. Fall back to object extraction for email sequence responses
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/)
+  if (objectMatch) return objectMatch[0]
+  return trimmed
 }
 
 // ============================================================
