@@ -10,9 +10,10 @@ import { PauseResumeButton } from '@/components/admin/PauseResumeButton'
 import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLeadList'
 import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
 import { AddLeadsButton } from '@/components/admin/AddLeadsButton'
+import { CampaignEditButton } from '@/components/admin/CampaignEditButton'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap, AlertTriangle } from 'lucide-react'
-import type { Booking, Lead, LeadEvent, Email } from '@/lib/supabase'
+import type { Booking, Lead, LeadEvent, Email, SmsMessage } from '@/lib/supabase'
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -97,9 +98,10 @@ export default async function CampaignDetailPage({ params }: Props) {
   if (allLeads && allLeads.length > 0) {
     const ids = allLeads.map((l) => l.id)
 
-    const [{ data: events }, { data: allEmails }] = await Promise.all([
+    const [{ data: events }, { data: allEmails }, { data: allSms }] = await Promise.all([
       supabase.from('lead_events').select('*').in('lead_id', ids).order('created_at', { ascending: false }),
       supabase.from('emails').select('*').in('lead_id', ids).order('sequence_number', { ascending: true }),
+      supabase.from('sms_messages').select('*').in('lead_id', ids).order('sequence_number', { ascending: true }),
     ])
 
     const eventsByLead = new Map<string, LeadEvent[]>()
@@ -114,10 +116,17 @@ export default async function CampaignDetailPage({ params }: Props) {
       emailsByLead.get(e.lead_id)!.push(e as Email)
     }
 
+    const smsByLead = new Map<string, SmsMessage[]>()
+    for (const s of allSms ?? []) {
+      if (!smsByLead.has(s.lead_id)) smsByLead.set(s.lead_id, [])
+      smsByLead.get(s.lead_id)!.push(s as SmsMessage)
+    }
+
     leadsWithEvents = (allLeads as Lead[]).map((l) => ({
       ...l,
       events: eventsByLead.get(l.id) ?? [],
       emails: emailsByLead.get(l.id) ?? [],
+      smses: smsByLead.get(l.id) ?? [],
     }))
   }
 
@@ -175,6 +184,9 @@ export default async function CampaignDetailPage({ params }: Props) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {campaign.status !== 'complete' && (
+            <CampaignEditButton campaign={campaign} />
+          )}
           {canAddLeads && (
             <AddLeadsButton
               campaignId={campaignId}

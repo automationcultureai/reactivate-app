@@ -218,26 +218,27 @@ Lead name: ${lead.name}
 Business name: ${clientBusiness}
 Tone: ${tone}${leadContext}${emailContextBlock}${instructions}
 
-Write exactly 4 SMS messages:
-- SMS 1: Initial reactivation — short, personal, include booking link
-- SMS 2: Follow-up — assume no reply to SMS 1
-- SMS 3: Final follow-up — last attempt
-- SMS 4: Re-engagement — for leads who clicked but didn't book or cancelled
+Write exactly 4 SMS messages. Each should feel personal, reference ${clientBusiness} by name, and give the lead enough context to remember who is contacting them and why. Aim for 2–3 sentences — enough to be meaningful, not so long it feels like spam.
+
+- SMS 1: Initial reactivation — greet ${lead.name} by name, mention ${clientBusiness}, reference the service or relationship naturally, include a clear booking link
+- SMS 2: Follow-up — assume no reply to SMS 1, try a slightly different angle or benefit, keep it warm not pushy
+- SMS 3: Final follow-up — last attempt, low pressure, acknowledge they may be busy, still offer the link
+- SMS 4: Re-engagement — for leads who clicked but didn't book or whose appointment was cancelled, acknowledge the near-miss and make it easy to rebook
 
 Non-negotiable rules:
-- Each message body must be 160 characters or fewer (including the literal text "[BOOKING_LINK]")
+- Each message body must be 320 characters or fewer (including the literal text "[BOOKING_LINK]")
 - Include [BOOKING_LINK] naturally in each message — it will be replaced with the real URL
-- No spam trigger words
-- Write personally to ${lead.name} — you may use their name once
-- Count your characters carefully before returning — 160 is an absolute hard limit
+- No spam trigger words (FREE, WINNER, CLICK HERE, GUARANTEED)
+- Write personally to ${lead.name} — use their name at most once per message
 - Do not include opt-out text — that is handled automatically
+- Write in plain conversational text — no markdown, no bullet points
 
 Return ONLY a valid JSON array with exactly 4 objects. No preamble, no explanation.
 Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -263,9 +264,9 @@ Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
     if (typeof smsList[i]?.body !== 'string') {
       throw new Error(`SMS ${i + 1} for ${lead.name} is missing required body field`)
     }
-    // Hard-cap at 160 chars — safety net if Claude exceeds the limit
-    if (smsList[i].body.length > 160) {
-      smsList[i].body = smsList[i].body.slice(0, 157) + '…'
+    // Hard-cap at 320 chars (2 concatenated SMS segments) — safety net
+    if (smsList[i].body.length > 320) {
+      smsList[i].body = smsList[i].body.slice(0, 317) + '…'
     }
   }
 

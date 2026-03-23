@@ -36,10 +36,10 @@ export async function POST(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    // Allow draft and ready — ready campaigns may have newly added leads to generate for
-    if (campaign.status !== 'draft' && campaign.status !== 'ready') {
+    // Allow draft, ready, active, paused — active/paused campaigns may have newly added leads
+    if (!['draft', 'ready', 'active', 'paused'].includes(campaign.status)) {
       return NextResponse.json(
-        { error: `Campaign is "${campaign.status}" — can only generate for draft or ready campaigns` },
+        { error: `Campaign is "${campaign.status}" — cannot generate sequences for completed campaigns` },
         { status: 400 }
       )
     }
@@ -181,7 +181,8 @@ export async function POST(
       }
     }
 
-    // 5. Mark campaign ready only when all leads are done
+    // 5. Mark campaign ready only for draft campaigns when all leads are done
+    // Active/paused campaigns stay in their current status — don't regress them
     if (generatedCount > 0 && remaining === 0 && campaign.status === 'draft') {
       const { error: updateError } = await supabase
         .from('campaigns')
@@ -193,6 +194,11 @@ export async function POST(
       }
     }
 
+    const finalStatus =
+      remaining === 0 && generatedCount > 0 && campaign.status === 'draft'
+        ? 'ready'
+        : campaign.status
+
     return NextResponse.json({
       success: true,
       generated: generatedCount,
@@ -200,7 +206,7 @@ export async function POST(
       failed_leads: failedLeads,
       remaining,
       total: leads.length,
-      status: remaining === 0 && generatedCount > 0 ? 'ready' : campaign.status,
+      status: finalStatus,
     })
   } catch (err) {
     console.error('[generate] Unexpected error:', err)

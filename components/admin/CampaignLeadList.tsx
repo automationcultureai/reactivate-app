@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
-import { Lead, LeadEvent, Email } from '@/lib/supabase'
+import { Lead, LeadEvent, Email, SmsMessage } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { LeadEditDialog } from '@/components/admin/LeadEditDialog'
 import {
@@ -36,6 +36,8 @@ import {
   CheckCircle,
   Search,
   X,
+  MessageSquare,
+  UserX,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -73,9 +75,19 @@ const SEQ_LABELS: Record<number, string> = {
   4: 'Email 4 — Re-engagement',
 }
 
+const VARIANT_LABELS: Record<string, string> = {
+  '2_unopened': 'Email 2 — Unopened variant',
+  '2_opened': 'Email 2 — Opened variant',
+  '2_clicked': 'Email 2 — Clicked variant',
+  '3_unopened': 'Email 3 — Unopened variant',
+  '3_opened': 'Email 3 — Opened variant',
+  '3_clicked': 'Email 3 — Clicked variant',
+}
+
 export interface LeadWithEvents extends Lead {
   events: LeadEvent[]
   emails?: Email[]
+  smses?: SmsMessage[]
 }
 
 interface CampaignLeadListProps {
@@ -105,6 +117,8 @@ export function CampaignLeadList({
   const [togglingOptOut, setTogglingOptOut] = useState<string | null>(null)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkActioning, setBulkActioning] = useState<'send_next_email' | 'send_next_sms' | 'unsubscribe' | null>(null)
+  const [confirmBulkUnsubscribe, setConfirmBulkUnsubscribe] = useState(false)
   const [search, setSearch] = useState('')
   const [collapsedWaves, setCollapsedWaves] = useState<Set<number>>(new Set())
   const [editingEmail, setEditingEmail] = useState<{
@@ -222,6 +236,39 @@ export function CampaignLeadList({
     finally { setBulkDeleting(false) }
   }
 
+  async function handleBulkAction(action: 'send_next_email' | 'send_next_sms' | 'unsubscribe') {
+    setBulkActioning(action)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/bulk-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids: Array.from(selected), action }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Action failed'); return }
+
+      if (action === 'unsubscribe') {
+        toast.success(`${json.affected} leads unsubscribed`)
+        setLeads((prev) => prev.map((l) =>
+          selected.has(l.id)
+            ? { ...l, email_opt_out: true, status: 'unsubscribed' as Lead['status'] }
+            : l
+        ))
+      } else {
+        const label = action === 'send_next_email' ? 'email' : 'SMS'
+        toast.success(`${json.sent} ${label}${json.sent !== 1 ? 's' : ''} sent${json.skipped > 0 ? `, ${json.skipped} skipped` : ''}`)
+        setLeads((prev) => prev.map((l) =>
+          selected.has(l.id) && l.status === 'pending'
+            ? { ...l, status: 'emailed' as Lead['status'] }
+            : l
+        ))
+      }
+      setSelected(new Set())
+      setConfirmBulkUnsubscribe(false)
+    } catch { toast.error('Something went wrong') }
+    finally { setBulkActioning(null) }
+  }
+
   async function handleOptOut(lead: LeadWithEvents) {
     const newOptOut = !lead.email_opt_out
     setTogglingOptOut(lead.id)
@@ -290,21 +337,60 @@ export function CampaignLeadList({
     <>
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border flex-wrap gap-2">
           <span className="text-sm text-foreground font-medium">
             {selected.size} lead{selected.size !== 1 ? 's' : ''} selected
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
               Deselect all
+            </Button>
+            {canSendNext && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBulkAction('send_next_email')}
+                  disabled={bulkActioning !== null}
+                >
+                  {bulkActioning === 'send_next_email'
+                    ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    : <Send className="w-3.5 h-3.5 mr-1.5" />
+                  }
+                  Send next email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBulkAction('send_next_sms')}
+                  disabled={bulkActioning !== null}
+                >
+                  {bulkActioning === 'send_next_sms'
+                    ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    : <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                  }
+                  Send next SMS
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
+              onClick={() => setConfirmBulkUnsubscribe(true)}
+              disabled={bulkActioning !== null}
+            >
+              <UserX className="w-3.5 h-3.5 mr-1.5" />
+              Unsubscribe
             </Button>
             <Button
               variant="destructive"
               size="sm"
               onClick={() => setConfirmBulkDelete(true)}
+              disabled={bulkActioning !== null}
             >
               <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              Delete selected
+              Delete
             </Button>
           </div>
         </div>
@@ -390,8 +476,11 @@ export function CampaignLeadList({
               const isDeleted = lead.status === 'deleted'
               const badgeClass = STATUS_BADGE[lead.status] ?? 'bg-muted text-muted-foreground'
               const sentEmails = (lead.emails ?? []).filter((e) => e.sent_at)
-              const unsentEmails = (lead.emails ?? []).filter((e) => !e.sent_at)
-              const nextUnsent = unsentEmails.sort((a, b) => a.sequence_number - b.sequence_number)[0]
+              // Sequence numbers that have at least one sent email (each seq has 1–3 rows)
+              const sentSeqNums = new Set(sentEmails.map((e) => e.sequence_number))
+              // Next sequence number to send (first of 1-4 not yet covered)
+              const nextSeqNum = ([1, 2, 3, 4] as const).find((s) => !sentSeqNums.has(s))
+              const nextUnsent = nextSeqNum !== undefined ? { sequence_number: nextSeqNum } : null
               const rfmTotal = lead.rfm_total_score
 
               return (
@@ -443,7 +532,7 @@ export function CampaignLeadList({
                       {format(parseISO(lead.created_at), 'dd MMM yyyy')}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {sentEmails.length}/{(lead.emails ?? []).length} sent
+                      {sentSeqNums.size}/4 sent
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {!isDeleted && (
@@ -519,6 +608,8 @@ export function CampaignLeadList({
                               </p>
                               <div className="grid gap-2">
                                 {(lead.emails ?? [])
+                                  // Show: Email 1 & 4 (no branch), and whichever variant of 2 & 3 was actually sent
+                                  .filter((e) => e.branch_variant === null || e.sent_at !== null)
                                   .sort((a, b) => a.sequence_number - b.sequence_number)
                                   .map((email) => {
                                     const isEditing = editingEmail?.emailId === email.id
@@ -526,7 +617,9 @@ export function CampaignLeadList({
                                       <div key={email.id} className="rounded-md border border-border bg-card p-3 space-y-1.5">
                                         <div className="flex items-center justify-between gap-2">
                                           <span className="text-xs font-medium text-muted-foreground">
-                                            {SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number}`}
+                                            {email.branch_variant
+                                              ? (VARIANT_LABELS[email.branch_variant] ?? `Email ${email.sequence_number}`)
+                                              : (SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number}`)}
                                           </span>
                                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                             {email.sent_at && (
@@ -569,6 +662,39 @@ export function CampaignLeadList({
                             </div>
                           )}
 
+                          {/* SMS sequences */}
+                          {(lead.smses ?? []).length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                <MessageSquare className="w-3 h-3" /> SMS sequences
+                              </p>
+                              <div className="grid gap-2">
+                                {(lead.smses ?? [])
+                                  .sort((a, b) => a.sequence_number - b.sequence_number)
+                                  .map((sms) => (
+                                    <div key={sms.id} className="rounded-md border border-border bg-card p-3 space-y-1.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                          SMS {sms.sequence_number}
+                                        </span>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                          {sms.sent_at ? (
+                                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                              <CheckCircle className="w-3 h-3" />
+                                              Sent {format(parseISO(sms.sent_at), 'dd MMM HH:mm')}
+                                            </span>
+                                          ) : (
+                                            <span className="text-muted-foreground/60">Not sent yet</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{sms.body}</p>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* Event log */}
                           {lead.events.length > 0 && (
                             <div className="space-y-1">
@@ -587,7 +713,7 @@ export function CampaignLeadList({
                             </div>
                           )}
 
-                          {lead.events.length === 0 && (lead.emails ?? []).length === 0 && (
+                          {lead.events.length === 0 && (lead.emails ?? []).length === 0 && (lead.smses ?? []).length === 0 && (
                             <p className="text-xs text-muted-foreground">No activity yet.</p>
                           )}
                         </div>
@@ -698,6 +824,30 @@ export function CampaignLeadList({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPreviewEmail(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk unsubscribe confirmation */}
+      <Dialog open={confirmBulkUnsubscribe} onOpenChange={setConfirmBulkUnsubscribe}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unsubscribe {selected.size} leads?</DialogTitle>
+            <DialogDescription>
+              This will opt out {selected.size} lead{selected.size !== 1 ? 's' : ''} from all future emails and SMS. They can be re-enabled individually.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmBulkUnsubscribe(false)} disabled={bulkActioning !== null}>Cancel</Button>
+            <Button
+              variant="outline"
+              className="text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
+              onClick={() => handleBulkAction('unsubscribe')}
+              disabled={bulkActioning !== null}
+            >
+              {bulkActioning === 'unsubscribe' && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
+              Unsubscribe {selected.size} leads
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

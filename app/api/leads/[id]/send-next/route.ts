@@ -92,24 +92,55 @@ export async function POST(
 
     // ── Email ──────────────────────────────────────────────────────────────
     if (hasEmail) {
-      const { data: emails, error: emailsError } = await supabase
+      // Fetch all emails for this lead to determine correct next step
+      const { data: allEmails, error: emailsError } = await supabase
         .from('emails')
-        .select('id, sequence_number, subject, body, sent_at')
+        .select('id, sequence_number, branch_variant, subject, body, sent_at, opened_at')
         .eq('lead_id', leadId)
-        .is('sent_at', null)
-        .order('sequence_number', { ascending: true })
-        .limit(1)
 
       if (emailsError) {
         console.error('[leads/send-next] Failed to fetch emails:', emailsError.message)
         return NextResponse.json({ error: 'Failed to fetch email sequence' }, { status: 500 })
       }
 
-      if (!emails || emails.length === 0) {
+      if (!allEmails || allEmails.length === 0) {
+        return NextResponse.json({ error: 'No email sequence generated for this lead' }, { status: 400 })
+      }
+
+      // Find which sequence numbers are already "done" (at least one email row has sent_at)
+      const sentSeqNums = new Set(
+        allEmails.filter((e) => e.sent_at).map((e) => e.sequence_number)
+      )
+
+      // Next sequence number = first of [1,2,3,4] not yet sent
+      const nextSeqNum = ([1, 2, 3, 4] as const).find((seq) => !sentSeqNums.has(seq))
+
+      if (nextSeqNum === undefined) {
         return NextResponse.json({ error: 'No unsent emails remaining in sequence' }, { status: 400 })
       }
 
-      const nextEmail = emails[0]
+      let nextEmail: typeof allEmails[number] | undefined
+
+      if (nextSeqNum === 1 || nextSeqNum === 4) {
+        // No branching — fetch the canonical (no variant) row
+        nextEmail = allEmails.find(
+          (e) => e.sequence_number === nextSeqNum && e.branch_variant === null && !e.sent_at
+        )
+      } else {
+        // Seq 2 or 3 — pick the right variant based on lead behaviour
+        const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
+        const hasOpened = hasClicked || allEmails.some((e) => e.opened_at)
+        const variantSuffix = hasClicked ? 'clicked' : hasOpened ? 'opened' : 'unopened'
+        const targetVariant = `${nextSeqNum}_${variantSuffix}`
+
+        nextEmail = allEmails.find(
+          (e) => e.sequence_number === nextSeqNum && e.branch_variant === targetVariant && !e.sent_at
+        )
+      }
+
+      if (!nextEmail) {
+        return NextResponse.json({ error: 'Could not find the next email to send' }, { status: 400 })
+      }
 
       await sendEmail({
         to: lead.email,

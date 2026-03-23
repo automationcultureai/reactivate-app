@@ -15,8 +15,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getSupabaseClient()
-  // Find bookings that are still "booked" but whose appointment time has passed
+  // Find bookings that are still "booked" but whose appointment DAY has fully passed.
+  // We use the start of today as the cutoff so that a 2pm appointment on Tuesday is
+  // only auto-completed when Wednesday's cron runs — not mid-day on Tuesday.
   const cutoff = new Date()
+  cutoff.setHours(0, 0, 0, 0) // start of today
 
   const { data: bookings, error } = await supabase
     .from('bookings')
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('lead_events').insert({
       lead_id: booking.lead_id,
       event_type: 'auto_completed',
-      description: 'Job auto-completed after appointment time passed',
+      description: 'Job auto-completed after appointment day passed',
     })
 
     completed++
