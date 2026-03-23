@@ -189,6 +189,9 @@ Format: {"email1":{"subject":"...","body":"..."},"email2_unopened":{"subject":".
  * Generates a personalised 4-SMS reactivation sequence for a lead.
  * Server-side only — never import this in client components.
  *
+ * If emailSequence is provided (channel='both'), the SMS prompt receives
+ * the email copy as context so each channel takes a distinct angle.
+ *
  * Returns exactly 4 { body } objects or throws.
  * Each body is guaranteed ≤ 160 characters.
  */
@@ -197,18 +200,23 @@ export async function generateSmsSequence(
   clientBusiness: string,
   tonePreset: string,
   toneCustom: string | null,
-  customInstructions: string | null
+  customInstructions: string | null,
+  emailSequence?: GeneratedEmailSequence
 ): Promise<GeneratedSms[]> {
   const client = getClient()
   const tone = buildToneClause(tonePreset, toneCustom)
   const instructions = buildInstructionsBlock(customInstructions)
   const leadContext = buildLeadContextBlock(lead)
 
+  const emailContextBlock = emailSequence
+    ? `\n\nThis lead is also receiving an email sequence. Each SMS fires only if the corresponding email went unopened after 48 hours. Write each SMS with a completely fresh angle — do not repeat the email's hook, phrasing, or CTA. Use a different entry point (e.g. if the email was warm/nostalgic, make the SMS direct/practical). Do not mention or reference email in the SMS copy.\n\nEmail copy for reference (do not repeat these angles):\n- Email 1: "${emailSequence.email1.body.slice(0, 140)}"\n- Email 2 (unopened follow-up): "${emailSequence.email2_unopened.body.slice(0, 100)}"\n- Email 3 (final attempt): "${emailSequence.email3_unopened.body.slice(0, 100)}"`
+    : ''
+
   const prompt = `You are writing personalised SMS reactivation messages for a small business.
 
 Lead name: ${lead.name}
 Business name: ${clientBusiness}
-Tone: ${tone}${leadContext}${instructions}
+Tone: ${tone}${leadContext}${emailContextBlock}${instructions}
 
 Write exactly 4 SMS messages:
 - SMS 1: Initial reactivation — short, personal, include booking link

@@ -75,6 +75,8 @@ export default async function DashboardPage() {
 
   let emailsSent = 0
   let openedCount = 0
+  let smsSent = 0
+  let smsOptedOut = 0
 
   if (allLeadIds.length > 0) {
     const { count: sent } = await supabase
@@ -90,8 +92,22 @@ export default async function DashboardPage() {
       .in('lead_id', allLeadIds)
       .not('opened_at', 'is', null)
 
+    const { count: smsCount } = await supabase
+      .from('sms_messages')
+      .select('id', { count: 'exact', head: true })
+      .in('lead_id', allLeadIds)
+      .not('sent_at', 'is', null)
+
+    const { count: optedOut } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .in('id', allLeadIds)
+      .eq('sms_opt_out', true)
+
     emailsSent = sent ?? 0
     openedCount = opened ?? 0
+    smsSent = smsCount ?? 0
+    smsOptedOut = optedOut ?? 0
   }
 
   const { data: sentEmails } = allLeadIds.length > 0
@@ -110,6 +126,32 @@ export default async function DashboardPage() {
     }
   }
   const latestEmailByLead = Object.fromEntries(latestEmailByLeadMap)
+
+  const { data: sentSms } = allLeadIds.length > 0
+    ? await supabase
+        .from('sms_messages')
+        .select('lead_id, sequence_number, sent_at')
+        .in('lead_id', allLeadIds)
+        .not('sent_at', 'is', null)
+        .order('sequence_number', { ascending: false })
+    : { data: [] }
+
+  const latestSmsByLeadMap = new Map<string, { sequence_number: number; sent_at: string }>()
+  const smsLeadsBySeq: Record<number, Set<string>> = { 1: new Set(), 2: new Set(), 3: new Set(), 4: new Set() }
+  for (const s of sentSms ?? []) {
+    if (!latestSmsByLeadMap.has(s.lead_id)) {
+      latestSmsByLeadMap.set(s.lead_id, { sequence_number: s.sequence_number, sent_at: s.sent_at! })
+    }
+    smsLeadsBySeq[s.sequence_number]?.add(s.lead_id)
+  }
+  const latestSmsByLead = Object.fromEntries(latestSmsByLeadMap)
+  const smsSeqCounts = {
+    sms1: smsLeadsBySeq[1].size,
+    sms2: smsLeadsBySeq[2].size,
+    sms3: smsLeadsBySeq[3].size,
+    sms4: smsLeadsBySeq[4].size,
+  }
+  const uniqueSmsLeads = smsLeadsBySeq[1].size
 
   const { data: recentEvents } = allLeadIds.length > 0
     ? await supabase
@@ -172,6 +214,10 @@ export default async function DashboardPage() {
           clickedCount={clickedCount}
           completedCount={completedCount}
           totalSpend={totalSpend}
+          smsSent={smsSent}
+          smsOptedOut={smsOptedOut}
+          uniqueSmsLeads={uniqueSmsLeads}
+          smsSeqCounts={smsSeqCounts}
         />
 
         <Separator />
@@ -204,7 +250,7 @@ export default async function DashboardPage() {
               Contact details are not displayed here for privacy.
             </p>
           </div>
-          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} latestEmailByLead={latestEmailByLead} />
+          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} latestEmailByLead={latestEmailByLead} latestSmsByLead={latestSmsByLead} />
         </div>
       </main>
     </>

@@ -31,6 +31,10 @@ interface DashboardStatsProps {
   clickedCount: number
   completedCount: number
   totalSpend: number   // in cents — sum of commission_owed for completed bookings
+  smsSent: number
+  smsOptedOut: number
+  uniqueSmsLeads: number
+  smsSeqCounts: { sms1: number; sms2: number; sms3: number; sms4: number }
 }
 
 export function DashboardStats({
@@ -41,6 +45,10 @@ export function DashboardStats({
   clickedCount,
   completedCount,
   totalSpend,
+  smsSent,
+  smsOptedOut,
+  uniqueSmsLeads,
+  smsSeqCounts,
 }: DashboardStatsProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -86,6 +94,14 @@ export function DashboardStats({
         sub="Commission charged for completed jobs"
         tooltip="Total commission charged by the agency for all completed jobs. This is the sum of the flat fee per completed appointment."
       />
+      {smsSent > 0 && (
+        <StatCard
+          label="Leads reached by SMS"
+          value={String(uniqueSmsLeads)}
+          sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
+          tooltip={`SMS is sent as a rescue channel when a lead hasn't opened an email after 48 hours. Sequence breakdown: SMS 1: ${smsSeqCounts.sms1} leads · SMS 2: ${smsSeqCounts.sms2} · SMS 3: ${smsSeqCounts.sms3} · SMS 4: ${smsSeqCounts.sms4}. Opt-out rate is the percentage of SMS-reached leads who replied STOP.`}
+        />
+      )}
     </div>
   )
 }

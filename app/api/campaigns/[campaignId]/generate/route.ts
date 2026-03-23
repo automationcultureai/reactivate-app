@@ -105,6 +105,8 @@ export async function POST(
         notes: lead.notes ?? undefined,
       }
 
+      let emailSeq: Awaited<ReturnType<typeof generateEmailSequence>> | undefined
+
       if (channel === 'email' || channel === 'both') {
         const seq = await generateEmailSequence(
           leadContext,
@@ -113,6 +115,7 @@ export async function POST(
           tone_custom,
           custom_instructions
         )
+        emailSeq = seq
         const BRANCH_ROWS = [
           { sequence_number: 1, branch_variant: null,         data: seq.email1 },
           { sequence_number: 2, branch_variant: '2_unopened', data: seq.email2_unopened },
@@ -140,7 +143,8 @@ export async function POST(
           clientName,
           tone_preset,
           tone_custom,
-          custom_instructions
+          custom_instructions,
+          emailSeq
         )
         for (let i = 0; i < 4; i++) {
           smsInserts.push({

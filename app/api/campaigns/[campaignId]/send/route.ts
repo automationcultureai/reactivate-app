@@ -235,7 +235,8 @@ export async function POST(
         }
 
         // Send SMS 1 (if channel includes SMS and Twilio is configured)
-        if (hasSms && lead.phone && isTwilioConfigured()) {
+        // For channel='both': skip SMS 1 here — it will be deferred to follow-up cron 48hrs after Email 1 (if unopened)
+        if (hasSms && !hasEmail && lead.phone && isTwilioConfigured()) {
           const { data: sms1 } = await supabase
             .from('sms_messages')
             .select('id, body')

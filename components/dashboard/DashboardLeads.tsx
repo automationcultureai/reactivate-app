@@ -44,13 +44,21 @@ const EMAIL_SEQ_LABELS: Record<number, string> = {
   4: 'Email 4 sent — Re-engagement',
 }
 
+const SMS_SEQ_LABELS: Record<number, string> = {
+  1: 'SMS 1 sent — Initial outreach',
+  2: 'SMS 2 sent — Follow-up',
+  3: 'SMS 3 sent — Final follow-up',
+  4: 'SMS 4 sent — Re-engagement',
+}
+
 interface DashboardLeadsProps {
   leads: Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>[]
   lastEventByLead: Record<string, { event_type: string; created_at: string }>
   latestEmailByLead: Record<string, { sequence_number: number; sent_at: string }>
+  latestSmsByLead: Record<string, { sequence_number: number; sent_at: string }>
 }
 
-export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead }: DashboardLeadsProps) {
+export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead, latestSmsByLead }: DashboardLeadsProps) {
   if (leads.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
@@ -93,17 +101,33 @@ export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead }: Da
                 <TableCell>
                   {(() => {
                     const email = latestEmailByLead[lead.id]
+                    const sms = latestSmsByLead[lead.id]
                     const event = lastEventByLead[lead.id]
 
-                    // Determine which is more recent
                     const emailTime = email ? new Date(email.sent_at).getTime() : 0
+                    const smsTime = sms ? new Date(sms.sent_at).getTime() : 0
                     const eventTime = event ? new Date(event.created_at).getTime() : 0
 
-                    if (!email && !event) {
+                    if (!email && !sms && !event) {
                       return <span className="text-muted-foreground text-sm">No activity yet</span>
                     }
 
-                    if (email && emailTime >= eventTime) {
+                    const mostRecentTime = Math.max(emailTime, smsTime, eventTime)
+
+                    if (sms && smsTime === mostRecentTime) {
+                      return (
+                        <div>
+                          <p className="text-sm text-foreground">
+                            {SMS_SEQ_LABELS[sms.sequence_number] ?? `SMS ${sms.sequence_number} sent`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(sms.sent_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      )
+                    }
+
+                    if (email && emailTime === mostRecentTime) {
                       return (
                         <div>
                           <p className="text-sm text-foreground">
@@ -116,7 +140,7 @@ export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead }: Da
                       )
                     }
 
-                    // Non-email event is more recent (clicked, booked, etc.)
+                    // Event is most recent (clicked, booked, etc.)
                     return (
                       <div>
                         <p className="text-sm text-foreground">
