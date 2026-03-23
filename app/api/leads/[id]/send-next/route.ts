@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 
 export async function POST(
   _req: NextRequest,
@@ -34,12 +35,6 @@ export async function POST(
     if (lead.status === 'unsubscribed') {
       return NextResponse.json({ error: 'Lead has unsubscribed' }, { status: 400 })
     }
-    if (lead.email_opt_out) {
-      return NextResponse.json({ error: 'Lead has opted out of email' }, { status: 400 })
-    }
-    if (!lead.email) {
-      return NextResponse.json({ error: 'Lead has no email address' }, { status: 400 })
-    }
 
     const campaign = lead.campaigns as {
       status: string
@@ -63,63 +58,137 @@ export async function POST(
       )
     }
 
+    const hasEmail = campaign.channel === 'email' || campaign.channel === 'both'
+    const hasSms = campaign.channel === 'sms' || campaign.channel === 'both'
+
+    // Channel-specific safety checks
+    if (hasEmail) {
+      if (lead.email_opt_out) {
+        return NextResponse.json({ error: 'Lead has opted out of email' }, { status: 400 })
+      }
+      if (!lead.email) {
+        return NextResponse.json({ error: 'Lead has no email address' }, { status: 400 })
+      }
+    }
+    if (hasSms) {
+      if (lead.sms_opt_out) {
+        return NextResponse.json({ error: 'Lead has opted out of SMS' }, { status: 400 })
+      }
+      if (!lead.phone) {
+        return NextResponse.json({ error: 'Lead has no phone number' }, { status: 400 })
+      }
+    }
+
     const clientData = campaign.clients
     const clientEmail = clientData?.email ?? ''
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-
-    // Find the next unsent email (lowest sequence_number where sent_at IS NULL)
-    const { data: emails, error: emailsError } = await supabase
-      .from('emails')
-      .select('id, sequence_number, subject, body, sent_at')
-      .eq('lead_id', leadId)
-      .is('sent_at', null)
-      .order('sequence_number', { ascending: true })
-      .limit(1)
-
-    if (emailsError) {
-      console.error('[leads/send-next] Failed to fetch emails:', emailsError.message)
-      return NextResponse.json({ error: 'Failed to fetch email sequence' }, { status: 500 })
-    }
-
-    if (!emails || emails.length === 0) {
-      return NextResponse.json({ error: 'No unsent emails remaining in sequence' }, { status: 400 })
-    }
-
-    const nextEmail = emails[0]
     const bookingUrl = `${appUrl}/book/${lead.booking_token}`
     const now = new Date().toISOString()
 
-    // Send the email
-    await sendEmail({
-      to: lead.email,
-      subject: nextEmail.subject,
-      body: nextEmail.body,
-      bookingUrl,
-      replyTo: clientEmail,
-      emailId: nextEmail.id,
-      leadToken: lead.booking_token,
-      clientBusinessName,
-      clientBusinessAddress,
-    })
+    let emailSeqSent: number | undefined
+    let smsSeqSent: number | undefined
 
-    // Mark email as sent
-    await supabase.from('emails').update({ sent_at: now }).eq('id', nextEmail.id)
+    // ── Email ──────────────────────────────────────────────────────────────
+    if (hasEmail) {
+      const { data: emails, error: emailsError } = await supabase
+        .from('emails')
+        .select('id, sequence_number, subject, body, sent_at')
+        .eq('lead_id', leadId)
+        .is('sent_at', null)
+        .order('sequence_number', { ascending: true })
+        .limit(1)
 
-    // Log event
-    await supabase.from('lead_events').insert({
-      lead_id: leadId,
-      event_type: 'email_sent',
-      description: `Email ${nextEmail.sequence_number} sent manually by admin to ${lead.email}`,
-    })
+      if (emailsError) {
+        console.error('[leads/send-next] Failed to fetch emails:', emailsError.message)
+        return NextResponse.json({ error: 'Failed to fetch email sequence' }, { status: 500 })
+      }
 
-    // Update lead status to emailed if still pending
-    if (lead.status === 'pending') {
-      await supabase.from('leads').update({ status: 'emailed' }).eq('id', leadId)
+      if (!emails || emails.length === 0) {
+        return NextResponse.json({ error: 'No unsent emails remaining in sequence' }, { status: 400 })
+      }
+
+      const nextEmail = emails[0]
+
+      await sendEmail({
+        to: lead.email,
+        subject: nextEmail.subject,
+        body: nextEmail.body,
+        bookingUrl,
+        replyTo: clientEmail,
+        emailId: nextEmail.id,
+        leadToken: lead.booking_token,
+        clientBusinessName,
+        clientBusinessAddress,
+      })
+
+      await supabase.from('emails').update({ sent_at: now }).eq('id', nextEmail.id)
+      await supabase.from('lead_events').insert({
+        lead_id: leadId,
+        event_type: 'email_sent',
+        description: `Email ${nextEmail.sequence_number} sent manually by admin to ${lead.email}`,
+      })
+
+      if (lead.status === 'pending') {
+        await supabase.from('leads').update({ status: 'emailed' }).eq('id', leadId)
+      }
+
+      emailSeqSent = nextEmail.sequence_number
     }
 
-    return NextResponse.json({ success: true, sequence_number: nextEmail.sequence_number })
+    // ── SMS ────────────────────────────────────────────────────────────────
+    if (hasSms) {
+      if (!isTwilioConfigured()) {
+        // For SMS-only channel this is fatal; for 'both' email already sent so skip gracefully
+        if (!hasEmail) {
+          return NextResponse.json({ error: 'Twilio is not configured' }, { status: 500 })
+        }
+      } else {
+        const { data: smsMessages, error: smsError } = await supabase
+          .from('sms_messages')
+          .select('id, sequence_number, body, sent_at')
+          .eq('lead_id', leadId)
+          .is('sent_at', null)
+          .order('sequence_number', { ascending: true })
+          .limit(1)
+
+        if (smsError) {
+          console.error('[leads/send-next] Failed to fetch SMS:', smsError.message)
+          return NextResponse.json({ error: 'Failed to fetch SMS sequence' }, { status: 500 })
+        }
+
+        if (!smsMessages || smsMessages.length === 0) {
+          // For SMS-only this is an error; for 'both' email already sent so skip gracefully
+          if (!hasEmail) {
+            return NextResponse.json({ error: 'No unsent SMS remaining in sequence' }, { status: 400 })
+          }
+        } else {
+          const nextSms = smsMessages[0]
+
+          await sendSms(lead.phone, nextSms.body, bookingUrl)
+          await supabase.from('sms_messages').update({ sent_at: now }).eq('id', nextSms.id)
+          await supabase.from('lead_events').insert({
+            lead_id: leadId,
+            event_type: 'sms_sent',
+            description: `SMS ${nextSms.sequence_number} sent manually by admin to ${lead.phone}`,
+          })
+
+          // Update pending SMS-only leads to sms_sent so follow-up sequence picks them up
+          if (!hasEmail && lead.status === 'pending') {
+            await supabase.from('leads').update({ status: 'sms_sent' }).eq('id', leadId)
+          }
+
+          smsSeqSent = nextSms.sequence_number
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      ...(emailSeqSent !== undefined && { sequence_number: emailSeqSent }),
+      ...(smsSeqSent !== undefined && { sms_sequence_number: smsSeqSent }),
+    })
   } catch (err) {
     console.error('[leads/send-next] Unexpected error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
