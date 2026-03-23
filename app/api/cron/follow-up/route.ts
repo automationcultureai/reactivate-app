@@ -14,6 +14,7 @@ const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
+const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
 
 function verifyCronSecret(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -212,17 +213,59 @@ export async function POST(req: NextRequest) {
       // Wave 2: send only if campaign activated >= 3 days ago.
       // Wave 3: send only if campaign activated >= 5 days ago.
       if (lead.status === 'pending') {
-        if (email1 && !email1.sent_at) {
-          const wave = (lead as { rfm_wave?: number }).rfm_wave ?? 1
-          const activatedAt = (campaign as { activated_at?: string | null }).activated_at
-          const msSinceActivation = activatedAt ? now - new Date(activatedAt).getTime() : Infinity
-          const waveReady =
-            wave === 1 ||
-            (wave === 2 && msSinceActivation >= THREE_DAYS_MS) ||
-            (wave === 3 && msSinceActivation >= FIVE_DAYS_MS)
-          if (waveReady) {
-            emailToSend = email1
+        const wave = (lead as { rfm_wave?: number }).rfm_wave ?? 1
+        const activatedAt = (campaign as { activated_at?: string | null }).activated_at
+        const msSinceActivation = activatedAt ? now - new Date(activatedAt).getTime() : Infinity
+        const waveReady =
+          wave === 1 ||
+          (wave === 2 && msSinceActivation >= THREE_DAYS_MS) ||
+          (wave === 3 && msSinceActivation >= FIVE_DAYS_MS)
+
+        if (email1 && !email1.sent_at && waveReady) {
+          emailToSend = email1
+          sequenceNumber = 1
+        } else if (!hasEmail && hasSms && waveReady) {
+          // SMS-only campaign: check if SMS 1 has not been sent yet
+          const sms1 = (smsByLead.get(lead.id) ?? {})[1]
+          if (sms1 && !sms1.sent_at) {
             sequenceNumber = 1
+          }
+        }
+      }
+
+      // SMS-only follow-up: leads with status 'sms_sent' need SMS 2 / SMS 3
+      if (lead.status === 'sms_sent' && !hasEmail && hasSms) {
+        const smsMap = smsByLead.get(lead.id) ?? {}
+        const sms1 = smsMap[1]
+
+        // SMS 2: SMS 1 sent > 3 days ago, SMS 2 not sent yet
+        const sms2 = smsMap[2]
+        if (sms1?.sent_at && sms2 && !sms2.sent_at && !sequenceNumber) {
+          const msSince = now - new Date(sms1.sent_at).getTime()
+          if (msSince >= THREE_DAYS_MS) {
+            sequenceNumber = 2
+          }
+        }
+
+        // SMS 3: SMS 1 sent > 8 days ago, SMS 2 already sent, SMS 3 not sent yet
+        const sms3 = smsMap[3]
+        if (sms1?.sent_at && smsMap[2]?.sent_at && sms3 && !sms3.sent_at && !sequenceNumber) {
+          const msSince = now - new Date(sms1.sent_at).getTime()
+          if (msSince >= EIGHT_DAYS_MS) {
+            sequenceNumber = 3
+          }
+        }
+      }
+
+      // SMS-only clicked: lead clicked booking page > 24hrs ago, SMS 4 not sent yet
+      if (lead.status === 'clicked' && !hasEmail && hasSms) {
+        const smsMap = smsByLead.get(lead.id) ?? {}
+        const sms4 = smsMap[4]
+        const lastClick = lastClickByLead.get(lead.id)
+        if (lastClick && sms4 && !sms4.sent_at) {
+          const msSinceClick = now - lastClick
+          if (msSinceClick >= TWENTY_FOUR_HOURS_MS) {
+            sequenceNumber = 4
           }
         }
       }
@@ -273,8 +316,26 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // For channel='both': independently determine which SMS to send.
+      // Gate: corresponding email (same seq number) was sent, not opened, and 48hrs have elapsed.
+      // This runs independently of emailToSend/sequenceNumber — SMS timing differs from email timing.
+      let smsBothSeq: number | undefined
+      if (hasEmail && hasSms) {
+        const smsMap = smsByLead.get(lead.id) ?? {}
+        for (const seqNum of [1, 2, 3, 4] as const) {
+          const smsN = smsMap[seqNum]
+          if (!smsN || smsN.sent_at) continue // already sent or no slot
+          const sentEmail = leadEmails.find(e => e.sequence_number === seqNum && e.sent_at != null)
+          if (!sentEmail || sentEmail.opened_at != null) continue // not sent yet, or was opened
+          if (now - new Date(sentEmail.sent_at!).getTime() >= FORTY_EIGHT_HOURS_MS) {
+            smsBothSeq = seqNum
+            break
+          }
+        }
+      }
+
       // Skip if nothing to send this run
-      if (!emailToSend && !sequenceNumber) continue
+      if (!emailToSend && !sequenceNumber && smsBothSeq == null) continue
 
       const bookingUrl = `${appUrl}/book/${lead.booking_token}`
       const now2 = new Date().toISOString()
@@ -341,10 +402,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Send SMS follow-up (same sequence number, same timing rules)
-      if (hasSms && sequenceNumber && lead.phone && !lead.sms_opt_out && isTwilioConfigured()) {
+      // Send SMS follow-up
+      // For channel='both': use smsBothSeq (48hr gate on corresponding email).
+      // For channel='sms': use sequenceNumber (existing timing rules).
+      const effectiveSmsSeq = (hasEmail && hasSms) ? smsBothSeq : sequenceNumber
+      if (hasSms && effectiveSmsSeq != null && lead.phone && !lead.sms_opt_out && isTwilioConfigured()) {
         const smsMap = smsByLead.get(lead.id) ?? {}
-        const smsToSend = smsMap[sequenceNumber]
+        const smsToSend = smsMap[effectiveSmsSeq]
         if (smsToSend && !smsToSend.sent_at) {
           try {
             await sendSms(lead.phone, smsToSend.body, bookingUrl)
@@ -352,15 +416,22 @@ export async function POST(req: NextRequest) {
             await supabase.from('lead_events').insert({
               lead_id: lead.id,
               event_type: 'sms_sent',
-              description: `SMS ${sequenceNumber} sent (follow-up cron)`,
+              description: `SMS ${effectiveSmsSeq} sent (follow-up cron)`,
             })
-            if (!hasEmail) { totalSent++; remainingToday-- }  // Count SMS-only sends
+            if (!hasEmail) {
+              totalSent++
+              remainingToday--
+              // Update pending SMS-only leads to sms_sent so follow-up sequence picks them up
+              if (lead.status === 'pending') {
+                await supabase.from('leads').update({ status: 'sms_sent' }).eq('id', lead.id)
+              }
+            }
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
-            console.error(`[cron/follow-up] SMS ${sequenceNumber} failed for lead ${lead.id}:`, message)
+            console.error(`[cron/follow-up] SMS ${effectiveSmsSeq} failed for lead ${lead.id}:`, message)
             await supabase.from('send_failures').insert({
               lead_id: lead.id, campaign_id: campaign.id, channel: 'sms',
-              sequence_number: sequenceNumber, error_message: message, attempt_count: 1, resolved: false,
+              sequence_number: effectiveSmsSeq, error_message: message, attempt_count: 1, resolved: false,
             })
             if (!hasEmail) {
               await supabase.from('leads').update({ send_failure_count: (lead.send_failure_count ?? 0) + 1 }).eq('id', lead.id)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Email, Lead, SmsMessage, CampaignAbTest } from '@/lib/supabase'
 import { EmailEditor } from '@/components/admin/EmailEditor'
+import { SmsEditor } from '@/components/admin/SmsEditor'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -61,11 +62,17 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
     Record<string, { subject: string; body: string }>
   >({})
 
+  // Local state for edited SMS content (smsId → body)
+  const [smsEdits, setSmsEdits] = useState<Record<string, string>>({})
+
   // Active branch tab per (leadId, sequenceNumber): key = `${leadId}-${seqNum}`
   const [branchTabs, setBranchTabs] = useState<Record<string, BranchTab>>({})
 
   // Read-only email preview dialog
   const [viewingEmail, setViewingEmail] = useState<{ subject: string; body: string } | null>(null)
+
+  // Read-only SMS preview dialog
+  const [viewingSms, setViewingSms] = useState<{ body: string; sequenceNumber: number } | null>(null)
 
   // A/B generating state per sequence number
   const [abGenerating, setAbGenerating] = useState<Record<number, boolean>>({})
@@ -170,6 +177,10 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
     setEmailEdits((prev) => ({ ...prev, [emailId]: { subject, body } }))
   }
 
+  function handleSmsUpdated(smsId: string, body: string) {
+    setSmsEdits((prev) => ({ ...prev, [smsId]: body }))
+  }
+
   function getBranchTab(leadId: string, seqNum: number): BranchTab {
     return branchTabs[`${leadId}-${seqNum}`] ?? 'unopened'
   }
@@ -220,9 +231,12 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
       <div className="flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur py-3 border-b border-border z-10 -mx-6 px-6">
         <p className="text-sm text-muted-foreground">
           {leads.length} lead{leads.length !== 1 ? 's' : ''} ·{' '}
-          {Object.keys(emailEdits).length > 0
-            ? `${Object.keys(emailEdits).length} email${Object.keys(emailEdits).length !== 1 ? 's' : ''} edited`
-            : 'No edits made'}
+          {(() => {
+            const editCount = Object.keys(emailEdits).length + Object.keys(smsEdits).length
+            return editCount > 0
+              ? `${editCount} message${editCount !== 1 ? 's' : ''} edited`
+              : 'No edits made'
+          })()}
         </p>
         <Button onClick={handleApproveSend} disabled={sending}>
           {sending ? (
@@ -522,23 +536,15 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
                           {sms
                             .sort((a, b) => a.sequence_number - b.sequence_number)
                             .map((msg) => (
-                              <div
+                              <SmsEditor
                                 key={msg.id}
-                                className="rounded-md border border-border bg-card p-3 space-y-1"
-                              >
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                  SMS {msg.sequence_number}
-                                </span>
-                                <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">
-                                  {msg.body}
-                                </p>
-                                <p className="text-xs text-muted-foreground text-right">
-                                  {msg.body.length}/160
-                                  {msg.body.length > 160 && (
-                                    <span className="text-destructive ml-1">over limit</span>
-                                  )}
-                                </p>
-                              </div>
+                                smsId={msg.id}
+                                campaignId={campaignId}
+                                sequenceNumber={msg.sequence_number}
+                                initialBody={smsEdits[msg.id] ?? msg.body}
+                                onUpdated={(body) => handleSmsUpdated(msg.id, body)}
+                                onView={(body, sequenceNumber) => setViewingSms({ body, sequenceNumber })}
+                              />
                             ))}
                         </div>
                       </div>
@@ -573,6 +579,23 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
           </DialogHeader>
           <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap pt-2">
             {viewingEmail?.body ?? ''}
+          </p>
+        </DialogContent>
+      </Dialog>
+
+      {/* SMS preview dialog (read-only) */}
+      <Dialog open={!!viewingSms} onOpenChange={(open) => { if (!open) setViewingSms(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              SMS {viewingSms?.sequenceNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="rounded-2xl bg-muted p-4 text-sm leading-relaxed whitespace-pre-wrap">
+            {viewingSms?.body ?? ''}
+          </div>
+          <p className="text-xs text-muted-foreground text-right">
+            {viewingSms?.body.length ?? 0}/160
           </p>
         </DialogContent>
       </Dialog>
