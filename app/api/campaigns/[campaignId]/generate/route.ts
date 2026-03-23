@@ -90,6 +90,7 @@ export async function POST(
 
     const failedLeads: string[] = []
     let generatedCount = 0
+    let firstErrorMessage: string | undefined
 
     // 4. Generate sequences in parallel (up to 5 concurrent Claude calls per batch)
     const CONCURRENCY = 5
@@ -177,6 +178,8 @@ export async function POST(
           const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
           console.error(`[generate] Failed for lead ${chunk[j].name}:`, message)
           failedLeads.push(chunk[j].name)
+          // Store first error message for client-side display
+          if (!firstErrorMessage) firstErrorMessage = message
         }
       }
     }
@@ -204,6 +207,7 @@ export async function POST(
       generated: generatedCount,
       failed: failedLeads.length,
       failed_leads: failedLeads,
+      first_error: firstErrorMessage,
       remaining,
       total: leads.length,
       status: finalStatus,

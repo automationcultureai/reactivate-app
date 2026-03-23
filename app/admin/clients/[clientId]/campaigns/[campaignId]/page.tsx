@@ -137,10 +137,11 @@ export default async function CampaignDetailPage({ params }: Props) {
   const bookedLeads = (allLeads ?? []).filter((l) => ['booked', 'completed'].includes(l.status)).length
   const completedLeads = (allLeads ?? []).filter((l) => l.status === 'completed').length
 
+  // Count distinct leads that opened at least one email (same unit as emailedLeads denominator)
   let emailsOpenedCount = 0
   if (allLeadIds.length > 0) {
-    const { count } = await supabase.from('emails').select('id', { count: 'exact', head: true }).in('lead_id', allLeadIds).not('opened_at', 'is', null)
-    emailsOpenedCount = count ?? 0
+    const { data: openedRows } = await supabase.from('emails').select('lead_id').in('lead_id', allLeadIds).not('opened_at', 'is', null)
+    emailsOpenedCount = new Set((openedRows ?? []).map((r) => r.lead_id)).size
   }
 
   const canAddLeads = !['complete'].includes(campaign.status)

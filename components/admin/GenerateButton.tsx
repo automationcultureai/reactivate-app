@@ -65,9 +65,12 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
       // Done — show result
       if (allFailedLeads.length > 0) {
         const successCount = processed - allFailedLeads.length
+        const errorDetail = (json.first_error as string | undefined)
+          ? ` — ${(json.first_error as string).slice(0, 120)}`
+          : ''
         toast.warning(
-          `Generated ${successCount} lead${successCount !== 1 ? 's' : ''}. ${allFailedLeads.length} failed: ${allFailedLeads.slice(0, 3).join(', ')}${allFailedLeads.length > 3 ? '…' : ''}`,
-          { id: toastId }
+          `Generated ${successCount} lead${successCount !== 1 ? 's' : ''}. ${allFailedLeads.length} failed: ${allFailedLeads.slice(0, 3).join(', ')}${allFailedLeads.length > 3 ? '…' : ''}${errorDetail}`,
+          { id: toastId, duration: 10000 }
         )
       } else if (processed === 0) {
         toast.success('All leads already have sequences generated.', { id: toastId })
@@ -75,7 +78,12 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
         toast.success(`${processed} sequence${processed !== 1 ? 's' : ''} generated successfully.`, { id: toastId })
       }
 
-      router.push(`/admin/clients/${clientId}/campaigns/${campaignId}/preview`)
+      // Only go to preview when the campaign just moved to ready (draft → ready transition)
+      // For active/paused campaigns just refresh so the new sequences appear inline
+      const finalStatus = json.status as string | undefined
+      if (finalStatus === 'ready') {
+        router.push(`/admin/clients/${clientId}/campaigns/${campaignId}/preview`)
+      }
       router.refresh()
     } catch {
       toast.error('Something went wrong during generation.', { id: toastId })
