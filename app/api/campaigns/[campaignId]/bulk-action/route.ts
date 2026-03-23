@@ -86,12 +86,13 @@ export async function POST(
     } | null
 
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
+    const clientEmail = client?.email ?? ''
     const clientBusinessName = client?.business_name ?? client?.name ?? 'the business'
     const clientBusinessAddress = client?.business_address ?? undefined
 
     const { data: leads, error: fetchErr } = await supabase
       .from('leads')
-      .select('id, name, email, phone, booking_token, email_opt_out, status')
+      .select('id, name, email, phone, booking_token, email_opt_out, sms_opt_out, status')
       .eq('campaign_id', campaignId)
       .in('id', lead_ids)
       .not('status', 'in', '(deleted,unsubscribed)')
@@ -103,21 +104,42 @@ export async function POST(
     let sent = 0
     let skipped = 0
 
-    for (const lead of leads) {
-      if (lead.email_opt_out) { skipped++; continue }
+    if (action === 'send_next_email') {
+      // Fetch all emails for all selected leads in one query
+      const { data: allEmails } = await supabase
+        .from('emails')
+        .select('id, lead_id, sequence_number, branch_variant, subject, body, sent_at, opened_at')
+        .in('lead_id', lead_ids)
 
-      if (action === 'send_next_email') {
-        if (!lead.email) { skipped++; continue }
+      const emailsByLead = new Map<string, typeof allEmails>()
+      for (const e of allEmails ?? []) {
+        if (!emailsByLead.has(e.lead_id)) emailsByLead.set(e.lead_id, [])
+        emailsByLead.get(e.lead_id)!.push(e)
+      }
 
-        const { data: nextEmail } = await supabase
-          .from('emails')
-          .select('id, sequence_number, subject, body')
-          .eq('lead_id', lead.id)
-          .is('sent_at', null)
-          .is('branch_variant', null)
-          .order('sequence_number', { ascending: true })
-          .limit(1)
-          .single()
+      for (const lead of leads) {
+        if (lead.email_opt_out || !lead.email) { skipped++; continue }
+
+        const leadEmails = emailsByLead.get(lead.id) ?? []
+        const sentSeqNums = new Set(leadEmails.filter((e) => e.sent_at).map((e) => e.sequence_number))
+        const nextSeqNum = ([1, 2, 3, 4] as const).find((s) => !sentSeqNums.has(s))
+
+        if (nextSeqNum === undefined) { skipped++; continue }
+
+        let nextEmail: typeof leadEmails[number] | undefined
+
+        if (nextSeqNum === 1 || nextSeqNum === 4) {
+          nextEmail = leadEmails.find(
+            (e) => e.sequence_number === nextSeqNum && e.branch_variant === null && !e.sent_at
+          )
+        } else {
+          const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
+          const hasOpened = hasClicked || leadEmails.some((e) => e.opened_at)
+          const variantSuffix = hasClicked ? 'clicked' : hasOpened ? 'opened' : 'unopened'
+          nextEmail = leadEmails.find(
+            (e) => e.sequence_number === nextSeqNum && e.branch_variant === `${nextSeqNum}_${variantSuffix}` && !e.sent_at
+          )
+        }
 
         if (!nextEmail) { skipped++; continue }
 
@@ -128,7 +150,7 @@ export async function POST(
             subject: nextEmail.subject,
             body: nextEmail.body,
             bookingUrl,
-            replyTo: client?.email ?? '',
+            replyTo: clientEmail,
             emailId: nextEmail.id,
             leadToken: lead.booking_token,
             clientBusinessName,
@@ -149,26 +171,38 @@ export async function POST(
           skipped++
         }
       }
+    }
 
-      if (action === 'send_next_sms') {
-        if (!isTwilioConfigured()) { skipped++; continue }
-        if (!lead.phone) { skipped++; continue }
+    if (action === 'send_next_sms') {
+      if (!isTwilioConfigured()) {
+        return NextResponse.json({ error: 'Twilio is not configured' }, { status: 500 })
+      }
 
-        const { data: nextSms } = await supabase
-          .from('sms_messages')
-          .select('id, sequence_number, body')
-          .eq('lead_id', lead.id)
-          .is('sent_at', null)
-          .order('sequence_number', { ascending: true })
-          .limit(1)
-          .single()
+      // Fetch all SMS for all selected leads in one query
+      const { data: allSms } = await supabase
+        .from('sms_messages')
+        .select('id, lead_id, sequence_number, body, sent_at')
+        .in('lead_id', lead_ids)
+
+      const smsByLead = new Map<string, typeof allSms>()
+      for (const s of allSms ?? []) {
+        if (!smsByLead.has(s.lead_id)) smsByLead.set(s.lead_id, [])
+        smsByLead.get(s.lead_id)!.push(s)
+      }
+
+      for (const lead of leads) {
+        if (lead.sms_opt_out || !lead.phone) { skipped++; continue }
+
+        const leadSms = smsByLead.get(lead.id) ?? []
+        const nextSms = leadSms
+          .filter((s) => !s.sent_at)
+          .sort((a, b) => a.sequence_number - b.sequence_number)[0]
 
         if (!nextSms) { skipped++; continue }
 
         const bookingUrl = `${appUrl}/book/${lead.booking_token}`
-        const smsBody = nextSms.body.replace(/\[BOOKING_LINK\]/g, bookingUrl)
         try {
-          await sendSms({ to: lead.phone, body: smsBody })
+          await sendSms(lead.phone, nextSms.body, bookingUrl)
           await supabase.from('sms_messages').update({ sent_at: new Date().toISOString() }).eq('id', nextSms.id)
           await supabase.from('lead_events').insert({
             lead_id: lead.id,
