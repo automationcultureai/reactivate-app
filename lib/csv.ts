@@ -39,6 +39,24 @@ function normalizeValue(v: unknown): string {
   return typeof v === 'string' ? v.trim() : ''
 }
 
+/**
+ * Normalises date strings to YYYY-MM-DD for Supabase.
+ * Handles: DD/MM/YYYY, D/M/YYYY, already-correct YYYY-MM-DD, null/empty.
+ */
+function normalizeDateField(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  // DD/MM/YYYY or D/M/YYYY
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (match) {
+    const [, d, m, y] = match
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  // Unrecognised format — pass through and let Supabase reject it
+  return value
+}
+
 /** Pick the first non-empty value from a list of column name variants */
 function pick(row: Record<string, string>, ...keys: string[]): string {
   for (const k of keys) {
@@ -158,12 +176,12 @@ export function parseLeadsCsv(
     if (phone) seenPhones.add(phone)
 
     // Extract optional enrichment columns — never error if blank
-    const last_contact_date = pick(row, 'last_contact_date', 'last_contact', 'last_service_date', 'last_service') || undefined
+    const last_contact_date = normalizeDateField(pick(row, 'last_contact_date', 'last_contact', 'last_service_date', 'last_service') || undefined)
     const service_type = pick(row, 'service_type', 'service', 'type', 'job_type') || undefined
     const purchase_value = pick(row, 'purchase_value', 'value', 'amount', 'job_value', 'price') || undefined
     const notes = pick(row, 'notes', 'note', 'comments', 'additional_notes', 'description') || undefined
     // RFM scoring inputs
-    const last_purchase_date = pick(row, 'last_purchase_date', 'last_purchase', 'purchase_date') || undefined
+    const last_purchase_date = normalizeDateField(pick(row, 'last_purchase_date', 'last_purchase', 'purchase_date') || undefined)
     const purchase_count = pick(row, 'purchase_count', 'purchases', 'num_purchases', 'purchase_frequency', 'total_purchases') || undefined
     const lifetime_value = pick(row, 'lifetime_value', 'ltv', 'total_spend', 'total_value', 'lifetime_spend', 'customer_value') || undefined
 
