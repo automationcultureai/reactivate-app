@@ -27,6 +27,8 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
     const toastId = toast.loading(`Generating sequences… 0/${total}`)
 
     try {
+      let lastJson: Record<string, unknown> = {}
+
       // Loop until the server reports no remaining leads
       while (true) {
         const res = await fetch(
@@ -42,6 +44,8 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
           toast.error('Server error during generation — check Vercel logs.', { id: toastId })
           return
         }
+
+        lastJson = json
 
         if (!res.ok) {
           toast.error((json.error as string) ?? 'Generation failed', { id: toastId })
@@ -65,8 +69,8 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
       // Done — show result
       if (allFailedLeads.length > 0) {
         const successCount = processed - allFailedLeads.length
-        const errorDetail = (json.first_error as string | undefined)
-          ? ` — ${(json.first_error as string).slice(0, 120)}`
+        const errorDetail = (lastJson.first_error as string | undefined)
+          ? ` — ${(lastJson.first_error as string).slice(0, 120)}`
           : ''
         toast.warning(
           `Generated ${successCount} lead${successCount !== 1 ? 's' : ''}. ${allFailedLeads.length} failed: ${allFailedLeads.slice(0, 3).join(', ')}${allFailedLeads.length > 3 ? '…' : ''}${errorDetail}`,
@@ -80,8 +84,7 @@ export function GenerateButton({ campaignId, clientId, leadCount, label }: Gener
 
       // Only go to preview when the campaign just moved to ready (draft → ready transition)
       // For active/paused campaigns just refresh so the new sequences appear inline
-      const finalStatus = json.status as string | undefined
-      if (finalStatus === 'ready') {
+      if (lastJson.status === 'ready') {
         router.push(`/admin/clients/${clientId}/campaigns/${campaignId}/preview`)
       }
       router.refresh()
