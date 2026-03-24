@@ -142,11 +142,11 @@ export default async function AdminBookingsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/10">
-                        <TableHead className="font-medium">Lead</TableHead>
-                        <TableHead className="font-medium">Scheduled</TableHead>
-                        <TableHead className="font-medium">Completed</TableHead>
-                        <TableHead className="font-medium">By</TableHead>
-                        <TableHead className="font-medium">Status</TableHead>
+                        <TableHead className="font-medium w-[25%]">Lead</TableHead>
+                        <TableHead className="font-medium w-[25%]">Scheduled</TableHead>
+                        <TableHead className="font-medium w-[25%]">Completed</TableHead>
+                        <TableHead className="font-medium w-[10%]">By</TableHead>
+                        <TableHead className="font-medium w-[15%]">Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
