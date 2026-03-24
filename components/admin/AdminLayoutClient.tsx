@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { AdminSidebar } from './AdminSidebar'
 import { cn } from '@/lib/utils'
 
 export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -24,8 +22,7 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
 
   function handleRefresh() {
     setRefreshing(true)
-    router.refresh()
-    setTimeout(() => setRefreshing(false), 600)
+    window.location.reload()
   }
 
   return (

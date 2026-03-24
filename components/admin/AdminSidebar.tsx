@@ -57,34 +57,35 @@ export function AdminSidebar({ collapsed, onToggle, onRefresh, refreshing }: Adm
       )}
     >
       {/* Brand + collapse toggle */}
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary shrink-0">
-          <Zap className="w-4 h-4 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <>
-            <span className="flex-1 font-semibold text-sidebar-foreground tracking-tight truncate">
-              Reactivate
-            </span>
-            <button
-              onClick={onToggle}
-              title="Collapse sidebar"
-              className="p-1 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          </>
-        )}
-        {collapsed && (
+      {collapsed ? (
+        // Collapsed: Zap icon centered, click to expand
+        <button
+          onClick={onToggle}
+          title="Expand sidebar"
+          className="flex items-center justify-center h-16 border-b border-sidebar-border shrink-0 hover:bg-sidebar-accent/50 transition-colors"
+        >
+          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary">
+            <Zap className="w-4 h-4 text-primary-foreground" />
+          </div>
+        </button>
+      ) : (
+        // Expanded: logo + name + chevron
+        <div className="flex items-center gap-2 px-4 h-16 border-b border-sidebar-border shrink-0">
+          <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary shrink-0">
+            <Zap className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <span className="flex-1 font-semibold text-sidebar-foreground tracking-tight truncate">
+            Reactivate
+          </span>
           <button
             onClick={onToggle}
-            title="Expand sidebar"
+            title="Collapse sidebar"
             className="p-1 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 rotate-180" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
