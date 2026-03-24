@@ -17,6 +17,7 @@ import {
   Activity,
   BarChart2,
   ChevronLeft,
+  RefreshCw,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
@@ -35,9 +36,11 @@ const navItems = [
 interface AdminSidebarProps {
   collapsed: boolean
   onToggle: () => void
+  onRefresh: () => void
+  refreshing: boolean
 }
 
-export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
+export function AdminSidebar({ collapsed, onToggle, onRefresh, refreshing }: AdminSidebarProps) {
   const pathname = usePathname()
   const { user } = useUser()
 
@@ -53,15 +56,33 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
         collapsed ? 'w-16' : 'w-60'
       )}
     >
-      {/* Brand */}
+      {/* Brand + collapse toggle */}
       <div className="flex items-center gap-2 px-4 h-16 border-b border-sidebar-border shrink-0">
         <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary shrink-0">
           <Zap className="w-4 h-4 text-primary-foreground" />
         </div>
         {!collapsed && (
-          <span className="font-semibold text-sidebar-foreground tracking-tight truncate">
-            Reactivate
-          </span>
+          <>
+            <span className="flex-1 font-semibold text-sidebar-foreground tracking-tight truncate">
+              Reactivate
+            </span>
+            <button
+              onClick={onToggle}
+              title="Collapse sidebar"
+              className="p-1 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </>
+        )}
+        {collapsed && (
+          <button
+            onClick={onToggle}
+            title="Expand sidebar"
+            className="p-1 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 rotate-180" />
+          </button>
         )}
       </div>
 
@@ -112,19 +133,15 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
               {!collapsed && 'Sign out'}
             </button>
           </SignOutButton>
+          <button
+            onClick={onRefresh}
+            title="Refresh"
+            className="p-2 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+          >
+            <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
+          </button>
           <ThemeToggle />
         </div>
-
-        {/* Collapse toggle */}
-        <button
-          onClick={onToggle}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="flex w-full items-center justify-center px-3 py-2 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-        >
-          <ChevronLeft
-            className={cn('w-4 h-4 transition-transform duration-300', collapsed && 'rotate-180')}
-          />
-        </button>
       </div>
     </aside>
   )

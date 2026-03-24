@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { RefreshCw } from 'lucide-react'
 import { AdminSidebar } from './AdminSidebar'
 import { cn } from '@/lib/utils'
 
@@ -31,20 +30,14 @@ export function AdminLayoutClient({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSidebar collapsed={collapsed} onToggle={toggleSidebar} />
+      <AdminSidebar
+        collapsed={collapsed}
+        onToggle={toggleSidebar}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      />
       <main className={cn('transition-[padding] duration-300', collapsed ? 'pl-16' : 'pl-60')}>
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
-              Refresh
-            </button>
-          </div>
-          {children}
-        </div>
+        <div className="max-w-7xl mx-auto px-6 py-8">{children}</div>
       </main>
     </div>
   )
