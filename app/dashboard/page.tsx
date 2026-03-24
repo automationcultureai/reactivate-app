@@ -33,7 +33,7 @@ export default async function DashboardPage() {
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, name, business_name')
+    .select('id, name, business_name, commission_type, commission_value')
     .eq('clerk_org_id', orgId)
     .single()
 
@@ -231,7 +231,12 @@ export default async function DashboardPage() {
               </span>
             )}
           </h2>
-          <DashboardBookings bookings={bookings} disputesByBooking={disputesByBooking} />
+          <DashboardBookings
+            bookings={bookings}
+            disputesByBooking={disputesByBooking}
+            commissionType={(client.commission_type as 'flat' | 'percentage') ?? 'flat'}
+            commissionValue={client.commission_value ?? 0}
+          />
         </div>
 
         <Separator />

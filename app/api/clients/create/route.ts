@@ -7,10 +7,11 @@ import { createClientOrganization } from '@/lib/clerk'
 const createClientSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(200),
   email: z.string().email('Invalid email address'),
-  commission_dollars: z
+  commission_type: z.enum(['flat', 'percentage']),
+  commission_value: z
     .string()
     .refine((v) => !isNaN(parseFloat(v)) && parseFloat(v) >= 0, {
-      message: 'Commission must be a non-negative number',
+      message: 'Commission value must be a non-negative number',
     }),
   google_calendar_id: z.string().max(500).nullable().optional(),
   business_name: z.string().max(200).nullable().optional(),
@@ -36,10 +37,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { name, email, commission_dollars, google_calendar_id, business_name, business_address, notes } = parsed.data
+    const { name, email, commission_type, commission_value, google_calendar_id, business_name, business_address, notes } = parsed.data
 
-    // Convert dollars to cents (store as integer)
-    const commission_per_job = Math.round(parseFloat(commission_dollars) * 100)
+    // Convert to stored integer: flat → cents, percentage → basis points (e.g. 10% → 1000)
+    const commission_value_stored = Math.round(parseFloat(commission_value) * 100)
+    // Backwards compat: commission_per_job stores cents for flat, 0 for percentage
+    const commission_per_job = commission_type === 'flat' ? commission_value_stored : 0
 
     // 3. Create Clerk organisation for the client
     let clerkOrgId: string
@@ -61,6 +64,8 @@ export async function POST(req: NextRequest) {
         name,
         email,
         commission_per_job,
+        commission_type,
+        commission_value: commission_value_stored,
         google_calendar_id: google_calendar_id ?? null,
         business_name: business_name ?? null,
         business_address: business_address ?? null,

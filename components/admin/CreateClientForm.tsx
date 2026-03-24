@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react'
 export function CreateClientForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [commissionType, setCommissionType] = useState<'flat' | 'percentage'>('flat')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -22,7 +23,8 @@ export function CreateClientForm() {
     const data = {
       name: (form.elements.namedItem('name') as HTMLInputElement).value.trim(),
       email: (form.elements.namedItem('email') as HTMLInputElement).value.trim(),
-      commission_dollars: (form.elements.namedItem('commission') as HTMLInputElement).value,
+      commission_type: commissionType,
+      commission_value: (form.elements.namedItem('commission') as HTMLInputElement).value,
       google_calendar_id: (form.elements.namedItem('calendar') as HTMLInputElement).value.trim() || null,
       business_name: (form.elements.namedItem('business_name') as HTMLInputElement).value.trim() || null,
       business_address: (form.elements.namedItem('business_address') as HTMLTextAreaElement).value.trim() || null,
@@ -118,25 +120,60 @@ export function CreateClientForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="commission">Commission per completed job ($) *</Label>
+            <Label>Commission type *</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCommissionType('flat')}
+                disabled={loading}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  commissionType === 'flat'
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                Flat fee ($)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCommissionType('percentage')}
+                disabled={loading}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  commissionType === 'percentage'
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border bg-background text-foreground hover:bg-muted'
+                }`}
+              >
+                Percentage (%)
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="commission">
+              Commission per completed job ({commissionType === 'flat' ? '$' : '%'}) *
+            </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                $
+                {commissionType === 'flat' ? '$' : '%'}
               </span>
               <Input
                 id="commission"
                 name="commission"
                 type="number"
                 min="0"
-                step="0.01"
-                placeholder="25.00"
+                step={commissionType === 'flat' ? '0.01' : '0.1'}
+                max={commissionType === 'percentage' ? '100' : undefined}
+                placeholder={commissionType === 'flat' ? '25.00' : '10'}
                 required
                 disabled={loading}
                 className="pl-7"
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Flat fee charged per job marked as complete.
+              {commissionType === 'flat'
+                ? 'Fixed dollar amount per completed job.'
+                : 'Percentage of job value reported at completion.'}
             </p>
           </div>
         </CardContent>

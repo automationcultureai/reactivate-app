@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, Loader2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -43,9 +44,11 @@ const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
 interface DashboardBookingsProps {
   bookings: (Booking & { leadName: string })[]
   disputesByBooking: Record<string, { status: string; admin_notes: string | null; reason: string }>
+  commissionType: 'flat' | 'percentage'
+  commissionValue: number  // cents (flat) or basis points (percentage)
 }
 
-export function DashboardBookings({ bookings: initialBookings, disputesByBooking }: DashboardBookingsProps) {
+export function DashboardBookings({ bookings: initialBookings, disputesByBooking, commissionType, commissionValue }: DashboardBookingsProps) {
   const [bookings, setBookings] = useState(initialBookings)
   const [working, setWorking] = useState<string | null>(null)
   // Per-booking selected action — default "complete"
@@ -54,27 +57,35 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
   const [disputeReason, setDisputeReason] = useState('')
   const [disputing, setDisputing] = useState(false)
   const [raisedDisputeIds, setRaisedDisputeIds] = useState<Set<string>>(new Set())
+  const [completeTarget, setCompleteTarget] = useState<string | null>(null)
+  const [jobValueInput, setJobValueInput] = useState('')
 
   function getAction(bookingId: string): 'complete' | 'cancel' {
     return bookingActions[bookingId] ?? 'complete'
   }
 
-  async function handleApply(bookingId: string) {
+  function handleApply(bookingId: string) {
     const action = getAction(bookingId)
     if (action === 'complete') {
-      await handleComplete(bookingId)
+      setCompleteTarget(bookingId)
+      setJobValueInput('')
     } else {
-      await handleCancel(bookingId)
+      handleCancel(bookingId)
     }
   }
 
-  async function handleComplete(bookingId: string) {
+  async function handleComplete(bookingId: string, jobValueStr: string | null) {
+    setCompleteTarget(null)
     setWorking(bookingId)
     try {
+      const body: Record<string, unknown> = { bookingId, completedBy: 'client' }
+      if (jobValueStr && !isNaN(parseFloat(jobValueStr))) {
+        body.job_value = parseFloat(jobValueStr)
+      }
       const res = await fetch('/api/jobs/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, completedBy: 'client' }),
+        body: JSON.stringify(body),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -258,6 +269,59 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
           </TableBody>
         </Table>
       </div>
+
+      {/* Complete job confirmation dialog */}
+      <Dialog open={completeTarget !== null} onOpenChange={(open) => !open && setCompleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm job completion</DialogTitle>
+            <DialogDescription>
+              Optionally enter the job value so your commission can be calculated accurately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="job-value">Job value (optional)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  id="job-value"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={jobValueInput}
+                  onChange={(e) => setJobValueInput(e.target.value)}
+                  className="pl-7"
+                />
+              </div>
+            </div>
+            <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+              {commissionType === 'flat' ? (
+                <>Commission owed: <span className="font-medium text-foreground">${(commissionValue / 100).toFixed(2)}</span> (flat fee)</>
+              ) : jobValueInput && !isNaN(parseFloat(jobValueInput)) && parseFloat(jobValueInput) >= 0 ? (
+                <>
+                  Commission owed:{' '}
+                  <span className="font-medium text-foreground">
+                    ${(Math.round(parseFloat(jobValueInput) * 100 * commissionValue / 10000) / 100).toFixed(2)}
+                  </span>
+                  {' '}({commissionValue / 100}% of ${parseFloat(jobValueInput).toFixed(2)})
+                </>
+              ) : (
+                <>Commission owed: calculated on submission ({commissionValue / 100}% of job value)</>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => completeTarget && handleComplete(completeTarget, jobValueInput || null)}>
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dispute dialog */}
       <Dialog open={disputeTarget !== null} onOpenChange={(open) => !open && setDisputeTarget(null)}>

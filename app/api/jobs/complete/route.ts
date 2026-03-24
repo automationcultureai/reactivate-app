@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/lib/supabase'
 const completeSchema = z.object({
   bookingId: z.string().uuid(),
   completedBy: z.enum(['client', 'admin']),
+  job_value: z.number().nonnegative().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -20,13 +21,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { bookingId, completedBy } = parsed.data
+    const { bookingId, completedBy, job_value } = parsed.data
     const supabase = getSupabaseClient()
 
     // Fetch the booking + client commission rate
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('id, lead_id, client_id, status, clients(commission_per_job, clerk_org_id)')
+      .select('id, lead_id, client_id, status, clients(commission_per_job, commission_type, commission_value, clerk_org_id)')
       .eq('id', bookingId)
       .single()
 
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
 
     const clientData = booking.clients as unknown as {
       commission_per_job: number
+      commission_type: 'flat' | 'percentage'
+      commission_value: number
       clerk_org_id: string | null
     }
 
@@ -68,6 +71,17 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString()
 
+    // Calculate commission
+    const job_value_cents = job_value != null ? Math.round(job_value * 100) : null
+    let commission_amount: number
+    if (clientData.commission_type === 'flat') {
+      commission_amount = clientData.commission_value
+    } else {
+      commission_amount = job_value_cents != null
+        ? Math.round(job_value_cents * clientData.commission_value / 10000)
+        : 0
+    }
+
     // Mark booking complete
     await supabase
       .from('bookings')
@@ -76,6 +90,8 @@ export async function POST(req: NextRequest) {
         completed_at: now,
         completed_by: completedBy,
         commission_owed: clientData.commission_per_job,
+        job_value: job_value_cents,
+        commission_amount,
       })
       .eq('id', bookingId)
 

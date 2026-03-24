@@ -74,6 +74,8 @@ export type Client = {
   email: string
   clerk_org_id: string | null
   commission_per_job: number
+  commission_type: 'flat' | 'percentage'
+  commission_value: number
   google_calendar_id: string | null
   business_name: string | null     // Used in email footers; falls back to name if null
   business_address: string | null  // Postal address for legal email footer compliance
@@ -216,6 +218,8 @@ export type Booking = {
   completed_at: string | null
   completed_by: 'client' | 'admin' | 'auto' | null
   commission_owed: number
+  job_value: number | null
+  commission_amount: number | null
   reminder_sent_at: string | null
   commission_paid_at: string | null   // Set when agency marks as paid; NULL = outstanding
   created_at: string
