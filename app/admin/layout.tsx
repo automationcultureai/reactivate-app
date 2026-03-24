@@ -3,15 +3,8 @@
 // causing Supabase data changes to not appear until the next deployment.
 export const dynamic = 'force-dynamic'
 
-import { AdminSidebar } from '@/components/admin/AdminSidebar'
+import { AdminLayoutClient } from '@/components/admin/AdminLayoutClient'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-background">
-      <AdminSidebar />
-      <main className="pl-60">
-        <div className="max-w-7xl mx-auto px-6 py-8">{children}</div>
-      </main>
-    </div>
-  )
+  return <AdminLayoutClient>{children}</AdminLayoutClient>
 }

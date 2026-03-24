@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Activity,
   BarChart2,
+  ChevronLeft,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
@@ -31,7 +32,12 @@ const navItems = [
   { label: 'Settings', href: '/admin/settings', icon: Settings, exact: false },
 ]
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  collapsed: boolean
+  onToggle: () => void
+}
+
+export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
   const pathname = usePathname()
   const { user } = useUser()
 
@@ -41,42 +47,51 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-60 flex flex-col bg-sidebar border-r border-sidebar-border">
+    <aside
+      className={cn(
+        'fixed inset-y-0 left-0 z-40 flex flex-col bg-sidebar border-r border-sidebar-border transition-[width] duration-300 overflow-hidden',
+        collapsed ? 'w-16' : 'w-60'
+      )}
+    >
       {/* Brand */}
-      <div className="flex items-center gap-2 px-5 h-16 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary">
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-primary shrink-0">
           <Zap className="w-4 h-4 text-primary-foreground" />
         </div>
-        <span className="font-semibold text-sidebar-foreground tracking-tight">
-          Reactivate
-        </span>
+        {!collapsed && (
+          <span className="font-semibold text-sidebar-foreground tracking-tight truncate">
+            Reactivate
+          </span>
+        )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
           const active = isActive(item.href, item.exact)
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                collapsed && 'justify-center',
                 active
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
               )}
             >
               <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
+              {!collapsed && item.label}
             </Link>
           )
         })}
       </nav>
 
-      {/* Footer with user info + sign out */}
-      <div className="px-3 py-4 border-t border-sidebar-border shrink-0 space-y-3">
-        {user && (
+      {/* Footer */}
+      <div className="px-2 py-4 border-t border-sidebar-border shrink-0 space-y-3">
+        {!collapsed && user && (
           <div className="px-2 space-y-0.5">
             <p className="text-xs font-medium text-sidebar-foreground truncate">
               {user.primaryEmailAddress?.emailAddress}
@@ -84,15 +99,32 @@ export function AdminSidebar() {
             <p className="text-xs text-sidebar-foreground/40">Admin</p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
           <SignOutButton redirectUrl="/sign-in">
-            <button className="flex flex-1 items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
+            <button
+              title={collapsed ? 'Sign out' : undefined}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors',
+                collapsed ? 'justify-center w-full' : 'flex-1'
+              )}
+            >
               <LogOut className="w-4 h-4 shrink-0" />
-              Sign out
+              {!collapsed && 'Sign out'}
             </button>
           </SignOutButton>
           <ThemeToggle />
         </div>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={onToggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="flex w-full items-center justify-center px-3 py-2 rounded-md text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+        >
+          <ChevronLeft
+            className={cn('w-4 h-4 transition-transform duration-300', collapsed && 'rotate-180')}
+          />
+        </button>
       </div>
     </aside>
   )
