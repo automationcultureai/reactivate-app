@@ -29,9 +29,7 @@ function getResend() {
 }
 
 function getFromAddress() {
-  const email = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
-  const name = process.env.RESEND_FROM_NAME
-  return name ? `${name} <${email}>` : email
+  return process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 }
 
 // ============================================================
