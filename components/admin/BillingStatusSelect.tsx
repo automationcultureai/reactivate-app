@@ -39,8 +39,8 @@ export function BillingStatusSelect({ status, onStatusChange, disabled }: Billin
       }}
       disabled={disabled}
     >
-      <SelectTrigger className="h-7 text-xs w-36 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 hover:bg-muted/30 rounded-md px-1.5">
-        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', STATUS_CLASSES[status])}>
+      <SelectTrigger className="h-7 w-auto border-0 bg-transparent p-0 shadow-none focus-visible:ring-0 hover:opacity-80 rounded-md justify-end">
+        <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold', STATUS_CLASSES[status])}>
           {STATUS_LABELS[status]}
         </span>
       </SelectTrigger>

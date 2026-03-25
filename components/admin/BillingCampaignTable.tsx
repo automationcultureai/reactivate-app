@@ -105,7 +105,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       {/* Campaign header */}
-      <div className="px-4 py-2.5 bg-muted/20 border-b border-border flex items-center justify-between gap-4 flex-wrap">
+      <div className="group px-4 py-2.5 bg-muted/20 border-b border-border flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <p className="text-sm text-foreground">
             <span className="font-medium text-muted-foreground">Campaign</span>
@@ -114,7 +114,10 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
           </p>
           <p className="text-xs font-mono text-muted-foreground">{fmt(total)}</p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={cn(
+          'flex items-center gap-1.5 transition-opacity',
+          selected.size > 0 || working ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        )}>
           <span className="text-xs text-muted-foreground">Set all to:</span>
           <Select
             value={campaignStatus}
@@ -187,33 +190,40 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
             <TableHead className="font-medium w-24">By</TableHead>
             <TableHead className="font-medium w-28 text-right">Job value</TableHead>
             <TableHead className="font-medium w-32 text-right">Commission</TableHead>
-            <TableHead className="font-medium w-44">Invoice status</TableHead>
+            <TableHead className="font-medium w-44 text-right">Invoice status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {bookings.map((b) => (
             <TableRow
               key={b.id}
-              className={cn('hover:bg-muted/10', selected.has(b.id) && 'bg-primary/5')}
+              className={cn('group/row hover:bg-muted/10', selected.has(b.id) && 'bg-primary/5')}
             >
               <TableCell>
-                <input type="checkbox" checked={selected.has(b.id)} onChange={() => toggleOne(b.id)}
-                  className="rounded border-border cursor-pointer" />
+                <input
+                  type="checkbox"
+                  checked={selected.has(b.id)}
+                  onChange={() => toggleOne(b.id)}
+                  className={cn(
+                    'rounded border-border cursor-pointer transition-opacity',
+                    selected.has(b.id) ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+                  )}
+                />
               </TableCell>
-              <TableCell className="text-foreground text-sm">{b.leadName}</TableCell>
+              <TableCell className="text-foreground text-sm font-semibold">{b.leadName}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
               <TableCell className="text-right font-mono text-sm text-muted-foreground">
                 {b.job_value != null ? fmt(b.job_value) : '—'}
               </TableCell>
-              <TableCell className="text-right font-mono text-sm font-medium">
-                <span className="inline-flex items-center gap-1.5 justify-end">
+              <TableCell className="text-right">
+                <span className="inline-flex items-center gap-1.5 justify-end font-mono text-sm font-semibold text-foreground bg-muted/30 rounded px-1.5 py-0.5">
                   {fmt(b.commission_amount ?? b.commission_owed)}
                   {b.receipt_url && <ReceiptButton bookingId={b.id} />}
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell className="text-right">
                 <BillingStatusSelect
                   status={statusMap[b.id] ?? b.invoiceStatus}
                   onStatusChange={(s) => applyStatus([b.id], s)}
