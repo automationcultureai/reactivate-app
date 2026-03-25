@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { BillingCampaignTable, type BillingBookingRow } from './BillingCampaignTable'
+import { BillingClientTable, type BillingBookingRow } from './BillingClientTable'
 
 export type BillingClientData = {
   clientId: string
@@ -19,7 +19,7 @@ export type BillingClientData = {
   totalOutstanding: number
   totalInvoiced: number
   totalPaid: number
-  campaigns: Array<{ campaignId: string; campaignName: string; bookings: BillingBookingRow[]; total: number }>
+  campaigns: Array<{ campaignId: string; campaignName: string; bookings: Omit<BillingBookingRow, 'campaignName'>[]; total: number }>
   sendLogCampaigns: Array<{ id: string; name: string }>
 }
 
@@ -111,18 +111,14 @@ export function BillingClientList({ clientGroups }: { clientGroups: BillingClien
               )}
             </button>
 
-            {/* Campaign tables */}
+            {/* Flat booking table */}
             {isOpen && (
-              <div className="border-t border-border divide-y divide-border">
-                {group.campaigns.map((campaign) => (
-                  <BillingCampaignTable
-                    key={campaign.campaignId}
-                    campaignId={campaign.campaignId}
-                    campaignName={campaign.campaignName}
-                    bookings={campaign.bookings}
-                    total={campaign.total}
-                  />
-                ))}
+              <div className="border-t border-border">
+                <BillingClientTable
+                  bookings={group.campaigns.flatMap((c) =>
+                    c.bookings.map((b) => ({ ...b, campaignName: c.campaignName }))
+                  )}
+                />
               </div>
             )}
           </div>

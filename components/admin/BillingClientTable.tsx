@@ -24,6 +24,7 @@ import { ReceiptButton } from './AdminBookingsList'
 
 export interface BillingBookingRow {
   id: string
+  campaignName: string
   scheduled_at: string
   completed_at: string | null
   completed_by: string | null
@@ -36,28 +37,22 @@ export interface BillingBookingRow {
   invoiceStatus: InvoiceStatus
 }
 
-interface BillingCampaignTableProps {
-  campaignId: string
-  campaignName: string
+interface BillingClientTableProps {
   bookings: BillingBookingRow[]
-  total: number
 }
 
 const fmt     = (cents: number) => `$${(cents / 100).toFixed(2)}`
 const fmtDate = (d: string | null) =>
   d ? new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
-export function BillingCampaignTable({ campaignName, bookings, total }: BillingCampaignTableProps) {
-  // ── Status state — owned here, passed down as controlled values ────────────
+export function BillingClientTable({ bookings }: BillingClientTableProps) {
   const [statusMap, setStatusMap] = useState<Record<string, InvoiceStatus>>(() =>
     Object.fromEntries(bookings.map((b) => [b.id, b.invoiceStatus]))
   )
 
-  // ── Selection state ────────────────────────────────────────────────────────
-  const [selected, setSelected]             = useState<Set<string>>(new Set())
-  const [bulkStatus, setBulkStatus]         = useState<InvoiceStatus>('invoice_sent')
-  const [campaignStatus, setCampaignStatus] = useState<InvoiceStatus>('invoice_sent')
-  const [working, setWorking]               = useState(false)
+  const [selected, setSelected]     = useState<Set<string>>(new Set())
+  const [bulkStatus, setBulkStatus] = useState<InvoiceStatus>('invoice_sent')
+  const [working, setWorking]       = useState(false)
 
   const allIds      = bookings.map((b) => b.id)
   const allSelected = selected.size === allIds.length && allIds.length > 0
@@ -67,15 +62,12 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
-  // ── Single applyStatus — used for all 3 paths (row, bulk-selected, all) ───
   const applyStatus = useCallback(async (ids: string[], status: InvoiceStatus) => {
     if (ids.length === 0) return
 
-    // Save previous for rollback
     const prev: Record<string, InvoiceStatus> = {}
     ids.forEach((id) => { prev[id] = statusMap[id] ?? 'outstanding' })
 
-    // Optimistic update — instant, no waiting
     setStatusMap((m) => { const n = { ...m }; ids.forEach((id) => { n[id] = status }); return n })
     setWorking(true)
 
@@ -86,7 +78,6 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
         body: JSON.stringify({ booking_ids: ids, status }),
       })
       if (!res.ok) {
-        // Revert on failure
         setStatusMap((m) => { const n = { ...m }; Object.assign(n, prev); return n })
         const json = await res.json()
         toast.error(json.error ?? 'Failed to update')
@@ -103,46 +94,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
   }, [statusMap])
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      {/* Campaign header */}
-      <div className="group px-4 py-2.5 bg-muted/20 border-b border-border flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-foreground">
-            <span className="font-medium text-muted-foreground">Campaign</span>
-            <span className="mx-1.5 text-muted-foreground/40">/</span>
-            <span className="font-semibold text-blue-400">{campaignName}</span>
-          </p>
-          <p className="text-xs font-mono text-muted-foreground">{fmt(total)}</p>
-        </div>
-        <div className={cn(
-          'flex items-center gap-1.5 transition-opacity',
-          selected.size > 0 || working ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        )}>
-          <span className="text-xs text-muted-foreground">Set all to:</span>
-          <Select
-            value={campaignStatus}
-            onValueChange={(v) => { if (v === 'outstanding' || v === 'invoice_sent' || v === 'invoice_paid') setCampaignStatus(v) }}
-            disabled={working}
-          >
-            <SelectTrigger className="h-7 text-xs w-36">
-              <span className="flex flex-1 text-left">{STATUS_LABELS[campaignStatus]}</span>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="outstanding">Outstanding</SelectItem>
-              <SelectItem value="invoice_sent">Invoice sent</SelectItem>
-              <SelectItem value="invoice_paid">Invoice paid</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm" variant="outline" className="h-7 text-xs px-2.5"
-            disabled={working}
-            onClick={() => applyStatus(allIds, campaignStatus)}
-          >
-            {working ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply to all'}
-          </Button>
-        </div>
-      </div>
-
+    <div>
       {/* Bulk selection bar */}
       {selected.size > 0 && (
         <div className="px-4 py-2 bg-primary/5 border-b border-border flex items-center gap-3 flex-wrap">
@@ -185,6 +137,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
                 className="rounded border-border cursor-pointer" />
             </TableHead>
             <TableHead className="font-medium w-48">Lead</TableHead>
+            <TableHead className="font-medium">Campaign</TableHead>
             <TableHead className="font-medium w-36">Appointment</TableHead>
             <TableHead className="font-medium w-36">Completed</TableHead>
             <TableHead className="font-medium w-24">By</TableHead>
@@ -211,6 +164,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
                 />
               </TableCell>
               <TableCell className="text-foreground text-sm font-semibold">{b.leadName}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">{b.campaignName}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>

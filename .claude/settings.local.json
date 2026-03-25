@@ -121,7 +121,18 @@
       "Bash(while read:*)",
       "Bash(do sed:*)",
       "Bash(done)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(ls /Users/nico/Desktop/business-projects/reactivate-app/app/api/campaigns/[campaignId]/)",
+      "Bash(git add:*)",
+      "Bash(find /Users/nico/Desktop/business-projects/reactivate-app/app/admin/campaigns -type f -name *.tsx)",
+      "Bash(find /Users/nico/Desktop/business-projects/reactivate-app/components/admin -type f -name *.tsx)",
+      "Bash(grep -n \"opened_at\\\\|open\" /Users/nico/Desktop/business-projects/reactivate-app/supabase/migrations/*.sql)",
+      "Bash(find /Users/nico/Desktop/business-projects/reactivate-app -name .env* -type f)",
+      "Bash(grep -r \"AGENCY_NAME\\\\|nick\\\\|from.*nick\" /Users/nico/Desktop/business-projects/reactivate-app --include=*.ts --include=*.tsx --include=*.json)",
+      "Bash(ls /Users/nico/Desktop/business-projects/reactivate-app/app/api/bookings/[bookingId]/)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(pkill -f 'next build')"
     ]
   }
 }
