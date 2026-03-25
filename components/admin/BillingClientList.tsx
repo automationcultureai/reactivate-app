@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ChevronDown, ChevronRight, Download } from 'lucide-react'
 import { buttonVariants } from '@/lib/button-variants'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { BillingCampaignTable, type BillingBookingRow } from './BillingCampaignTable'
 
 export type BillingClientData = {
@@ -75,22 +81,31 @@ export function BillingClientList({ clientGroups }: { clientGroups: BillingClien
                   )}
                 </div>
               </div>
-              {/* Send log links — stop propagation so clicking them doesn't toggle */}
+              {/* Send log dropdown — stop propagation so clicking doesn't toggle */}
               {group.sendLogCampaigns.length > 0 && (
                 <div
-                  className="flex items-center gap-1.5 shrink-0"
+                  className="shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {group.sendLogCampaigns.slice(0, 3).map((c) => (
-                    <a
-                      key={c.id}
-                      href={`/api/billing/send-log/${c.id}`}
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs h-7')}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs h-7 gap-1.5')}
                     >
-                      <Download className="w-3 h-3 mr-1" />
-                      {c.name} log
-                    </a>
-                  ))}
+                      <Download className="w-3 h-3" />
+                      Send logs
+                      <ChevronDown className="w-3 h-3" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {group.sendLogCampaigns.map((c) => (
+                        <DropdownMenuItem key={c.id} asChild>
+                          <a href={`/api/billing/send-log/${c.id}`}>
+                            <Download className="w-3 h-3 mr-2" />
+                            {c.name}
+                          </a>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </button>
