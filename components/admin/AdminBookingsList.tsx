@@ -115,15 +115,15 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
             {/* Single flat table — campaign name as inline column */}
             {isOpen && (
               <div className="border-t border-border">
-                <Table className="table-fixed w-full">
+                <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/20">
-                      <TableHead className="font-medium w-1/6">Lead</TableHead>
-                      <TableHead className="font-medium w-1/6">Campaign</TableHead>
-                      <TableHead className="font-medium w-1/6">Scheduled</TableHead>
-                      <TableHead className="font-medium w-1/6">Completed</TableHead>
-                      <TableHead className="font-medium w-1/6">By</TableHead>
-                      <TableHead className="font-medium w-1/6">Status</TableHead>
+                      <TableHead className="font-medium">Lead</TableHead>
+                      <TableHead className="font-medium">Campaign</TableHead>
+                      <TableHead className="font-medium">Scheduled</TableHead>
+                      <TableHead className="font-medium">Completed</TableHead>
+                      <TableHead className="font-medium">By</TableHead>
+                      <TableHead className="font-medium">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
