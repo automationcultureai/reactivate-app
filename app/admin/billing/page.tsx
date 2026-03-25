@@ -1,9 +1,8 @@
 import { getSupabaseClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/lib/button-variants'
-import { Separator } from '@/components/ui/separator'
-import { BillingCampaignTable } from '@/components/admin/BillingCampaignTable'
 import { BillingMonthFilter } from '@/components/admin/BillingMonthFilter'
+import { BillingClientList, type BillingClientData } from '@/components/admin/BillingClientList'
 import { type InvoiceStatus } from '@/components/admin/BillingStatusSelect'
 import { Download } from 'lucide-react'
 
@@ -170,6 +169,18 @@ export default async function BillingPage({
     campaignsByClient.get(c.client_id)!.push(c)
   }
 
+  // Serialise for BillingClientList client component
+  const billingClientGroups: BillingClientData[] = clientGroups.map((g) => ({
+    clientId: g.clientId,
+    clientName: g.clientName,
+    commissionPerJob: g.commissionPerJob,
+    totalOutstanding: g.totalOutstanding,
+    totalInvoiced: g.totalInvoiced,
+    totalPaid: g.totalPaid,
+    campaigns: Array.from(g.campaigns.values()),
+    sendLogCampaigns: (campaignsByClient.get(g.clientId) ?? []).slice(0, 3).map((c) => ({ id: c.id, name: c.name })),
+  }))
+
   const fmt     = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
   return (
@@ -215,56 +226,7 @@ export default async function BillingPage({
           </p>
         </div>
       ) : (
-        clientGroups.map((group) => {
-          const clientCampaigns = campaignsByClient.get(group.clientId) ?? []
-          const campaignList    = Array.from(group.campaigns.values())
-
-          return (
-            <div key={group.clientId} className="space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">{group.clientName}</h2>
-                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">{fmt(group.commissionPerJob)}/job</span>
-                    {group.totalOutstanding > 0 && (
-                      <span className="text-xs font-medium text-foreground">{fmt(group.totalOutstanding)} outstanding</span>
-                    )}
-                    {group.totalInvoiced > 0 && (
-                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{fmt(group.totalInvoiced)} invoiced</span>
-                    )}
-                    {group.totalPaid > 0 && (
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">{fmt(group.totalPaid)} paid</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {clientCampaigns.slice(0, 3).map((c) => (
-                    <a
-                      key={c.id}
-                      href={`/api/billing/send-log/${c.id}`}
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs')}
-                    >
-                      <Download className="w-3 h-3 mr-1" />
-                      {c.name} log
-                    </a>
-                  ))}
-                </div>
-              </div>
-
-              {campaignList.map((campaign) => (
-                <BillingCampaignTable
-                  key={campaign.campaignId}
-                  campaignId={campaign.campaignId}
-                  campaignName={campaign.campaignName}
-                  bookings={campaign.bookings}
-                  total={campaign.total}
-                />
-              ))}
-
-              <Separator />
-            </div>
-          )
-        })
+        <BillingClientList clientGroups={billingClientGroups} />
       )}
     </div>
   )

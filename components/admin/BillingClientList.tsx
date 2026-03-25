@@ -1,0 +1,117 @@
+'use client'
+
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { ChevronDown, ChevronRight, Download } from 'lucide-react'
+import { buttonVariants } from '@/lib/button-variants'
+import { BillingCampaignTable, type BillingBookingRow } from './BillingCampaignTable'
+
+export type BillingClientData = {
+  clientId: string
+  clientName: string
+  commissionPerJob: number
+  totalOutstanding: number
+  totalInvoiced: number
+  totalPaid: number
+  campaigns: Array<{ campaignId: string; campaignName: string; bookings: BillingBookingRow[]; total: number }>
+  sendLogCampaigns: Array<{ id: string; name: string }>
+}
+
+const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`
+
+export function BillingClientList({ clientGroups }: { clientGroups: BillingClientData[] }) {
+  const allIds = clientGroups.map((g) => g.clientId)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(allIds))
+  const allExpanded = expanded.size === allIds.length
+
+  function toggleAll() {
+    setExpanded(allExpanded ? new Set() : new Set(allIds))
+  }
+
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button
+          onClick={toggleAll}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {allExpanded ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+
+      {clientGroups.map((group) => {
+        const isOpen = expanded.has(group.clientId)
+        return (
+          <div key={group.clientId} className="rounded-lg border border-border overflow-hidden">
+
+            {/* Client header — clickable */}
+            <button
+              onClick={() => toggle(group.clientId)}
+              className="w-full px-4 py-3 flex items-center gap-3 bg-muted/10 hover:bg-muted/20 transition-colors text-left"
+            >
+              {isOpen
+                ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              }
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{group.clientName}</p>
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  {group.totalOutstanding > 0 && (
+                    <span className="text-xs font-medium text-foreground">{fmt(group.totalOutstanding)} outstanding</span>
+                  )}
+                  {group.totalInvoiced > 0 && (
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{fmt(group.totalInvoiced)} invoiced</span>
+                  )}
+                  {group.totalPaid > 0 && (
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400">{fmt(group.totalPaid)} paid</span>
+                  )}
+                </div>
+              </div>
+              {/* Send log links — stop propagation so clicking them doesn't toggle */}
+              {group.sendLogCampaigns.length > 0 && (
+                <div
+                  className="flex items-center gap-1.5 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {group.sendLogCampaigns.slice(0, 3).map((c) => (
+                    <a
+                      key={c.id}
+                      href={`/api/billing/send-log/${c.id}`}
+                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs h-7')}
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      {c.name} log
+                    </a>
+                  ))}
+                </div>
+              )}
+            </button>
+
+            {/* Campaign tables */}
+            {isOpen && (
+              <div className="border-t border-border divide-y divide-border">
+                {group.campaigns.map((campaign) => (
+                  <BillingCampaignTable
+                    key={campaign.campaignId}
+                    campaignId={campaign.campaignId}
+                    campaignName={campaign.campaignName}
+                    bookings={campaign.bookings}
+                    total={campaign.total}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}

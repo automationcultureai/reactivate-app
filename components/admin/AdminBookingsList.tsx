@@ -54,7 +54,6 @@ const fmtDate = (d: string | null) =>
 export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupData[] }) {
   const allIds = clientGroups.map((g) => g.clientId)
   const [expanded, setExpanded] = useState<Set<string>>(new Set(allIds))
-
   const allExpanded = expanded.size === allIds.length
 
   function toggleAll() {
@@ -92,53 +91,60 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
         const isOpen = expanded.has(group.clientId)
         return (
           <div key={group.clientId} className="rounded-lg border border-border overflow-hidden">
-            {/* Client header — clickable */}
+
+            {/* Client header — clickable, counts on sub-line */}
             <button
               onClick={() => toggle(group.clientId)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-3 bg-muted/10 hover:bg-muted/20 transition-colors text-left"
+              className="w-full px-4 py-3 flex items-center gap-3 bg-muted/10 hover:bg-muted/20 transition-colors text-left"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                {isOpen
-                  ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                }
-                <span className="text-sm font-semibold text-foreground truncate">{group.clientName}</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs shrink-0">
-                {group.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{group.counts.upcoming} upcoming</span>}
-                {group.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{group.counts.completed} completed</span>}
-                {group.counts.cancelled > 0 && <span className="text-muted-foreground">{group.counts.cancelled} cancelled</span>}
+              {isOpen
+                ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              }
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{group.clientName}</p>
+                <div className="flex items-center gap-3 text-xs mt-0.5">
+                  {group.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{group.counts.upcoming} upcoming</span>}
+                  {group.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{group.counts.completed} completed</span>}
+                  {group.counts.cancelled > 0 && <span className="text-muted-foreground">{group.counts.cancelled} cancelled</span>}
+                </div>
               </div>
             </button>
 
-            {/* Expanded campaigns */}
+            {/* Single table for all campaigns — campaign names appear as separator rows */}
             {isOpen && (
-              <div className="border-t border-border divide-y divide-border">
-                {group.campaigns.map((campaign) => (
-                  <div key={campaign.campaignId}>
-                    {/* Campaign heading — Option B: full-width section divider */}
-                    <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-0.5 h-4 rounded-full bg-primary/60 shrink-0" />
-                        <p className="text-sm font-semibold text-foreground">{campaign.campaignName}</p>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs shrink-0">
-                        {campaign.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{campaign.counts.upcoming} upcoming</span>}
-                        {campaign.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{campaign.counts.completed} completed</span>}
-                        {campaign.counts.cancelled > 0 && <span className="text-muted-foreground">{campaign.counts.cancelled} cancelled</span>}
-                      </div>
-                    </div>
-                    <Table className="table-fixed w-full">
-                      <TableHeader>
-                        <TableRow className="bg-muted/10">
-                          <TableHead className="font-medium w-1/5">Lead</TableHead>
-                          <TableHead className="font-medium w-1/5">Scheduled</TableHead>
-                          <TableHead className="font-medium w-1/5">Completed</TableHead>
-                          <TableHead className="font-medium w-1/5">By</TableHead>
-                          <TableHead className="font-medium w-1/5">Status</TableHead>
+              <div className="border-t border-border">
+                <Table className="table-fixed w-full">
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      <TableHead className="font-medium w-1/5">Lead</TableHead>
+                      <TableHead className="font-medium w-1/5">Scheduled</TableHead>
+                      <TableHead className="font-medium w-1/5">Completed</TableHead>
+                      <TableHead className="font-medium w-1/5">By</TableHead>
+                      <TableHead className="font-medium w-1/5">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group.campaigns.map((campaign) => (
+                      <>
+                        {/* Campaign separator row */}
+                        <TableRow key={`sep-${campaign.campaignId}`} className="bg-muted/30 hover:bg-muted/30 border-t border-border">
+                          <TableCell colSpan={5} className="py-2 px-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-0.5 h-3.5 rounded-full bg-primary/50 shrink-0" />
+                                <span className="text-xs font-semibold text-foreground">{campaign.campaignName}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                {campaign.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{campaign.counts.upcoming} upcoming</span>}
+                                {campaign.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{campaign.counts.completed} completed</span>}
+                                {campaign.counts.cancelled > 0 && <span className="text-muted-foreground">{campaign.counts.cancelled} cancelled</span>}
+                              </div>
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
+
+                        {/* Booking rows for this campaign */}
                         {campaign.bookings.map((b) => {
                           const badge = STATUS_BADGE[b.status] ?? { label: b.status, classes: 'bg-muted text-muted-foreground' }
                           return (
@@ -155,10 +161,10 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
                             </TableRow>
                           )
                         })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
+                      </>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
@@ -168,7 +174,7 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
   )
 }
 
-// Standalone receipt button used in billing table — re-exported for reuse
+// Receipt button — used in billing table
 export function ReceiptButton({ bookingId }: { bookingId: string }) {
   const [loading, setLoading] = useState(false)
 
