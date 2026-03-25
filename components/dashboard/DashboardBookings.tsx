@@ -83,7 +83,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   function calcPreviewCommission(): string {
     if (commissionType === 'flat') {
-      return `$${(commissionValue / 100).toFixed(2)} (flat fee)`
+      return `$${(commissionValue / 100).toFixed(2)}`
     }
     if (jobValueValid) {
       const amount = Math.round(parseFloat(jobValueInput) * 100 * commissionValue / 10000) / 100
@@ -345,7 +345,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
           <DialogHeader>
             <DialogTitle>Confirm job completion</DialogTitle>
             <DialogDescription>
-              Enter the job value to calculate your commission. You can also upload a receipt for verification.
+              Enter the total value of the completed job. The agency commission will be calculated and charged based on this amount.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -372,7 +372,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               </span>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="receipt-file">Receipt (optional)</Label>
+              <Label htmlFor="receipt-file">Job invoice or proof of value</Label>
               <Input
                 id="receipt-file"
                 type="file"
@@ -381,7 +381,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                 className="cursor-pointer"
               />
               <p className="text-xs text-muted-foreground">
-                Upload a photo or PDF of the job receipt for agency verification.
+                Attach an invoice, receipt, or photo as proof of the job value.
               </p>
             </div>
           </div>
