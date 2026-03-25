@@ -8,6 +8,7 @@ const completeSchema = z.object({
   bookingId: z.string().uuid(),
   completedBy: z.enum(['client', 'admin']),
   job_value: z.number().nonnegative().optional(),
+  receipt_url: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { bookingId, completedBy, job_value } = parsed.data
+    const { bookingId, completedBy, job_value, receipt_url } = parsed.data
     const supabase = getSupabaseClient()
 
     // Fetch the booking + client commission rate
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
         commission_owed: clientData.commission_per_job,
         job_value: job_value_cents,
         commission_amount,
+        receipt_url: receipt_url ?? null,
       })
       .eq('id', bookingId)
 

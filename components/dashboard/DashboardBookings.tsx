@@ -31,7 +31,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AlertCircle, Loader2, Calendar } from 'lucide-react'
+import { AlertCircle, Loader2, Calendar, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
@@ -59,6 +59,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
   const [raisedDisputeIds, setRaisedDisputeIds] = useState<Set<string>>(new Set())
   const [completeTarget, setCompleteTarget] = useState<string | null>(null)
   const [jobValueInput, setJobValueInput] = useState('')
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
 
   function getAction(bookingId: string): 'complete' | 'cancel' {
     return bookingActions[bookingId] ?? 'complete'
@@ -69,19 +70,55 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
     if (action === 'complete') {
       setCompleteTarget(bookingId)
       setJobValueInput('')
+      setReceiptFile(null)
     } else {
       handleCancel(bookingId)
     }
   }
 
-  async function handleComplete(bookingId: string, jobValueStr: string | null) {
+  const jobValueValid =
+    jobValueInput.trim() !== '' &&
+    !isNaN(parseFloat(jobValueInput)) &&
+    parseFloat(jobValueInput) > 0
+
+  function calcPreviewCommission(): string {
+    if (commissionType === 'flat') {
+      return `$${(commissionValue / 100).toFixed(2)} (flat fee)`
+    }
+    if (jobValueValid) {
+      const amount = Math.round(parseFloat(jobValueInput) * 100 * commissionValue / 10000) / 100
+      return `$${amount.toFixed(2)} (${commissionValue / 100}% of $${parseFloat(jobValueInput).toFixed(2)})`
+    }
+    return `${commissionValue / 100}% of job value`
+  }
+
+  async function handleComplete(bookingId: string, jobValueStr: string) {
     setCompleteTarget(null)
     setWorking(bookingId)
     try {
-      const body: Record<string, unknown> = { bookingId, completedBy: 'client' }
-      if (jobValueStr && !isNaN(parseFloat(jobValueStr))) {
-        body.job_value = parseFloat(jobValueStr)
+      let receipt_url: string | undefined
+
+      if (receiptFile) {
+        const fd = new FormData()
+        fd.append('file', receiptFile)
+        const uploadRes = await fetch(`/api/bookings/${bookingId}/upload-receipt`, {
+          method: 'POST',
+          body: fd,
+        })
+        if (uploadRes.ok) {
+          const uploadJson = await uploadRes.json()
+          receipt_url = uploadJson.receipt_url
+        }
+        // non-fatal — proceed even if upload fails
       }
+
+      const body: Record<string, unknown> = {
+        bookingId,
+        completedBy: 'client',
+        job_value: parseFloat(jobValueStr),
+      }
+      if (receipt_url) body.receipt_url = receipt_url
+
       const res = await fetch('/api/jobs/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,8 +130,19 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
         return
       }
       toast.success('Job marked as complete')
+
+      // Calculate commission for optimistic UI update
+      const job_value_cents = Math.round(parseFloat(jobValueStr) * 100)
+      const commission_amount = commissionType === 'flat'
+        ? commissionValue
+        : Math.round(job_value_cents * commissionValue / 10000)
+
       setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: 'completed' } : b))
+        prev.map((b) =>
+          b.id === bookingId
+            ? { ...b, status: 'completed', job_value: job_value_cents, commission_amount, receipt_url: receipt_url ?? b.receipt_url }
+            : b
+        )
       )
     } catch {
       toast.error('Something went wrong')
@@ -169,6 +217,8 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               <TableHead className="font-medium">Lead</TableHead>
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="font-medium">Status</TableHead>
+              <TableHead className="font-medium">Job value</TableHead>
+              <TableHead className="font-medium">Commission</TableHead>
               <TableHead className="w-56 font-medium">Manage</TableHead>
             </TableRow>
           </TableHeader>
@@ -177,6 +227,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               const dispute = disputesByBooking[booking.id]
               const wasJustRaised = raisedDisputeIds.has(booking.id)
               const isWorking = working === booking.id
+              const isCompleted = booking.status === 'completed' || booking.status === 'disputed'
 
               let displayStatus: string
               let displayClass: string
@@ -212,6 +263,24 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                     </span>
                     {(dispute?.status === 'resolved' || dispute?.status === 'rejected') && dispute?.admin_notes && (
                       <p className="text-xs text-muted-foreground italic mt-0.5">&quot;{dispute.admin_notes}&quot;</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {isCompleted && booking.job_value != null
+                      ? <span className="text-foreground font-medium">${(booking.job_value / 100).toFixed(2)}</span>
+                      : <span className="text-muted-foreground/40">—</span>
+                    }
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {isCompleted && booking.commission_amount != null ? (
+                      <span className="inline-flex items-center gap-1 text-foreground font-medium">
+                        ${(booking.commission_amount / 100).toFixed(2)}
+                        {booking.receipt_url && (
+                          <Paperclip className="w-3 h-3 text-muted-foreground" aria-label="Receipt uploaded" />
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/40">—</span>
                     )}
                   </TableCell>
                   <TableCell>
@@ -276,18 +345,18 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
           <DialogHeader>
             <DialogTitle>Confirm job completion</DialogTitle>
             <DialogDescription>
-              Optionally enter the job value so your commission can be calculated accurately.
+              Enter the job value to calculate your commission. You can also upload a receipt for verification.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="job-value">Job value (optional)</Label>
+              <Label htmlFor="job-value">Job value *</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                 <Input
                   id="job-value"
                   type="number"
-                  min="0"
+                  min="0.01"
                   step="0.01"
                   placeholder="0.00"
                   value={jobValueInput}
@@ -297,26 +366,33 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               </div>
             </div>
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              {commissionType === 'flat' ? (
-                <>Commission owed: <span className="font-medium text-foreground">${(commissionValue / 100).toFixed(2)}</span> (flat fee)</>
-              ) : jobValueInput && !isNaN(parseFloat(jobValueInput)) && parseFloat(jobValueInput) >= 0 ? (
-                <>
-                  Commission owed:{' '}
-                  <span className="font-medium text-foreground">
-                    ${(Math.round(parseFloat(jobValueInput) * 100 * commissionValue / 10000) / 100).toFixed(2)}
-                  </span>
-                  {' '}({commissionValue / 100}% of ${parseFloat(jobValueInput).toFixed(2)})
-                </>
-              ) : (
-                <>Commission owed: calculated on submission ({commissionValue / 100}% of job value)</>
-              )}
+              Commission owed:{' '}
+              <span className={cn('font-medium', jobValueValid || commissionType === 'flat' ? 'text-foreground' : '')}>
+                {calcPreviewCommission()}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="receipt-file">Receipt (optional)</Label>
+              <Input
+                id="receipt-file"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+                className="cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload a photo or PDF of the job receipt for agency verification.
+              </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteTarget(null)}>
               Cancel
             </Button>
-            <Button onClick={() => completeTarget && handleComplete(completeTarget, jobValueInput || null)}>
+            <Button
+              onClick={() => completeTarget && handleComplete(completeTarget, jobValueInput)}
+              disabled={!jobValueValid}
+            >
               Confirm
             </Button>
           </DialogFooter>

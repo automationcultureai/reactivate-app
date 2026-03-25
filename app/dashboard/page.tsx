@@ -188,11 +188,15 @@ export default async function DashboardPage() {
 
   const { data: spendData } = await supabase
     .from('bookings')
-    .select('commission_owed')
+    .select('commission_amount, commission_owed')
     .eq('client_id', client.id)
     .eq('status', 'completed')
 
-  const totalSpend = (spendData ?? []).reduce((sum, b) => sum + (b.commission_owed ?? 0), 0)
+  // Use commission_amount (accurate, set at completion) where available; fall back to legacy commission_owed
+  const totalSpend = (spendData ?? []).reduce(
+    (sum, b) => sum + (b.commission_amount ?? b.commission_owed ?? 0),
+    0
+  )
 
   return (
     <>
