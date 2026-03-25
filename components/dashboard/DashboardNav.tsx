@@ -24,9 +24,9 @@ export function DashboardNav({ clientName }: DashboardNavProps) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-muted-foreground/60">
             <Zap className="w-3.5 h-3.5" />
-            <span className="text-xs font-medium">Reactivate</span>
+            <span className="text-sm font-medium">Automation Culture</span>
           </div>
-          <span className="text-muted-foreground/30 text-xs">/</span>
+          <span className="text-muted-foreground/30 text-sm">/</span>
           <span className="text-sm font-medium text-foreground">{clientName}</span>
         </div>
         <div className="flex items-center gap-1">

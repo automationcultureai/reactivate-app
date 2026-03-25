@@ -21,17 +21,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AlertCircle, Loader2, Calendar, Paperclip } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { AlertCircle, Loader2, Calendar, Paperclip, MoreHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
@@ -51,8 +50,6 @@ interface DashboardBookingsProps {
 export function DashboardBookings({ bookings: initialBookings, disputesByBooking, commissionType, commissionValue }: DashboardBookingsProps) {
   const [bookings, setBookings] = useState(initialBookings)
   const [working, setWorking] = useState<string | null>(null)
-  // Per-booking selected action — default "complete"
-  const [bookingActions, setBookingActions] = useState<Record<string, 'complete' | 'cancel'>>({})
   const [disputeTarget, setDisputeTarget] = useState<string | null>(null)
   const [disputeReason, setDisputeReason] = useState('')
   const [disputing, setDisputing] = useState(false)
@@ -61,19 +58,10 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
   const [jobValueInput, setJobValueInput] = useState('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
 
-  function getAction(bookingId: string): 'complete' | 'cancel' {
-    return bookingActions[bookingId] ?? 'complete'
-  }
-
-  function handleApply(bookingId: string) {
-    const action = getAction(bookingId)
-    if (action === 'complete') {
-      setCompleteTarget(bookingId)
-      setJobValueInput('')
-      setReceiptFile(null)
-    } else {
-      handleCancel(bookingId)
-    }
+  function handleOpenComplete(bookingId: string) {
+    setCompleteTarget(bookingId)
+    setJobValueInput('')
+    setReceiptFile(null)
   }
 
   const jobValueValid =
@@ -218,7 +206,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="font-medium">Status</TableHead>
               <TableHead className="font-medium">Job value</TableHead>
-              <TableHead className="font-medium">Fee owed</TableHead>
+              <TableHead className="font-medium">Commission owed</TableHead>
               <TableHead className="w-56 font-medium">Manage</TableHead>
             </TableRow>
           </TableHeader>
@@ -284,52 +272,41 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                     )}
                   </TableCell>
                   <TableCell>
-                    {booking.status === 'booked' && (
-                      <div className="flex items-center gap-1.5">
-                        <Select
-                          value={getAction(booking.id)}
-                          onValueChange={(v) => {
-                            if (v === 'complete' || v === 'cancel') {
-                              setBookingActions(prev => ({ ...prev, [booking.id]: v }))
-                            }
-                          }}
-                          disabled={isWorking}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-44">
-                            <span className="flex flex-1 text-left">
-                              {getAction(booking.id) === 'complete' ? 'Mark complete' : 'Booking cancelled'}
-                            </span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="complete">Mark complete</SelectItem>
-                            <SelectItem value="cancel">Booking cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs px-2.5"
-                          onClick={() => handleApply(booking.id)}
-                          disabled={isWorking}
-                        >
-                          {isWorking && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                          Apply
-                        </Button>
-                      </div>
+                    {isWorking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
                     )}
-                    {booking.status === 'completed' && !dispute && !wasJustRaised && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground text-xs h-7"
-                        onClick={() => {
-                          setDisputeTarget(booking.id)
-                          setDisputeReason('')
-                        }}
-                      >
-                        <AlertCircle className="w-3 h-3 mr-1.5" />
-                        Raise dispute
-                      </Button>
+                    {!isWorking && booking.status === 'booked' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenComplete(booking.id)}>
+                            Mark complete
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCancel(booking.id)}>
+                            Cancel booking
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {!isWorking && booking.status === 'completed' && !dispute && !wasJustRaised && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setDisputeTarget(booking.id)
+                              setDisputeReason('')
+                            }}
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 mr-2" />
+                            Raise dispute
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </TableCell>
                 </TableRow>
@@ -366,7 +343,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               </div>
             </div>
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              Fee owed:{' '}
+              Commission owed:{' '}
               <span className={cn('font-medium', jobValueValid || commissionType === 'flat' ? 'text-foreground' : '')}>
                 {calcPreviewCommission()}
               </span>

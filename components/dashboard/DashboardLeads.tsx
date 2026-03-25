@@ -60,6 +60,8 @@ interface DashboardLeadsProps {
   latestSmsByLead: Record<string, { sequence_number: number; sent_at: string }>
 }
 
+type LeadRowWithCampaign = LeadRow & { campaignName: string }
+
 function LastAction({
   leadId,
   latestEmailByLead,
@@ -112,7 +114,6 @@ function LastAction({
 
 export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailByLead, latestSmsByLead }: DashboardLeadsProps) {
   const totalLeads = leadsByCampaign.reduce((s, g) => s + g.leads.length, 0)
-  const showHeaders = leadsByCampaign.length > 1
 
   if (totalLeads === 0) {
     return (
@@ -123,54 +124,50 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
     )
   }
 
+  const allLeads: LeadRowWithCampaign[] = leadsByCampaign.flatMap(({ campaignName, leads }) =>
+    leads.map((lead) => ({ ...lead, campaignName }))
+  )
+
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30">
             <TableHead className="font-medium">Name</TableHead>
+            <TableHead className="font-medium">Campaign</TableHead>
             <TableHead className="font-medium">Status</TableHead>
             <TableHead className="font-medium">Last action</TableHead>
             <TableHead className="font-medium">Added</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leadsByCampaign.map(({ campaignName, leads }) => (
-            <>
-              {showHeaders && (
-                <TableRow key={`header-${campaignName}`} className="bg-muted/20 hover:bg-muted/20">
-                  <TableCell colSpan={4} className="py-2 px-4">
-                    <span className="text-xs font-semibold text-foreground">{campaignName}</span>
-                    <span className="text-xs text-muted-foreground ml-2">· {leads.length} lead{leads.length !== 1 ? 's' : ''}</span>
-                  </TableCell>
-                </TableRow>
-              )}
-              {leads.map((lead) => {
-                const badge = STATUS_BADGE[lead.status] ?? { label: lead.status, classes: 'bg-muted text-muted-foreground' }
-                return (
-                  <TableRow key={lead.id} className="hover:bg-muted/10">
-                    <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
-                    <TableCell>
-                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
-                        {badge.label}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <LastAction
-                        leadId={lead.id}
-                        latestEmailByLead={latestEmailByLead}
-                        latestSmsByLead={latestSmsByLead}
-                        lastEventByLead={lastEventByLead}
-                      />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </>
-          ))}
+          {allLeads.map((lead) => {
+            const badge = STATUS_BADGE[lead.status] ?? { label: lead.status, classes: 'bg-muted text-muted-foreground' }
+            return (
+              <TableRow key={lead.id} className="hover:bg-muted/10">
+                <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
+                <TableCell>
+                  <span className="text-xs text-muted-foreground">{lead.campaignName}</span>
+                </TableCell>
+                <TableCell>
+                  <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
+                    {badge.label}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <LastAction
+                    leadId={lead.id}
+                    latestEmailByLead={latestEmailByLead}
+                    latestSmsByLead={latestSmsByLead}
+                    lastEventByLead={lastEventByLead}
+                  />
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
     </div>
