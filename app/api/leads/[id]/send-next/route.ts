@@ -176,41 +176,44 @@ export async function POST(
           return NextResponse.json({ error: 'Twilio is not configured' }, { status: 500 })
         }
       } else {
-        const { data: smsMessages, error: smsError } = await supabase
-          .from('sms_messages')
-          .select('id, sequence_number, body, sent_at')
-          .eq('lead_id', leadId)
-          .is('sent_at', null)
-          .order('sequence_number', { ascending: true })
-          .limit(1)
+        try {
+          const { data: smsMessages, error: smsError } = await supabase
+            .from('sms_messages')
+            .select('id, sequence_number, body, sent_at')
+            .eq('lead_id', leadId)
+            .is('sent_at', null)
+            .order('sequence_number', { ascending: true })
+            .limit(1)
 
-        if (smsError) {
-          console.error('[leads/send-next] Failed to fetch SMS:', smsError.message)
-          return NextResponse.json({ error: 'Failed to fetch SMS sequence' }, { status: 500 })
-        }
+          if (smsError) {
+            if (!hasEmail) return NextResponse.json({ error: 'Failed to fetch SMS sequence' }, { status: 500 })
+            console.error('[leads/send-next] Failed to fetch SMS:', smsError.message)
+          } else if (!smsMessages || smsMessages.length === 0) {
+            // For SMS-only this is an error; for 'both' email already sent so skip gracefully
+            if (!hasEmail) {
+              return NextResponse.json({ error: 'No unsent SMS remaining in sequence' }, { status: 400 })
+            }
+          } else {
+            const nextSms = smsMessages[0]
 
-        if (!smsMessages || smsMessages.length === 0) {
-          // For SMS-only this is an error; for 'both' email already sent so skip gracefully
-          if (!hasEmail) {
-            return NextResponse.json({ error: 'No unsent SMS remaining in sequence' }, { status: 400 })
+            await sendSms(lead.phone, nextSms.body, bookingUrl)
+            await supabase.from('sms_messages').update({ sent_at: now }).eq('id', nextSms.id)
+            await supabase.from('lead_events').insert({
+              lead_id: leadId,
+              event_type: 'sms_sent',
+              description: `SMS ${nextSms.sequence_number} sent manually by admin to ${lead.phone}`,
+            })
+
+            // Update pending SMS-only leads to sms_sent so follow-up sequence picks them up
+            if (!hasEmail && lead.status === 'pending') {
+              await supabase.from('leads').update({ status: 'sms_sent' }).eq('id', leadId)
+            }
+
+            smsSeqSent = nextSms.sequence_number
           }
-        } else {
-          const nextSms = smsMessages[0]
-
-          await sendSms(lead.phone, nextSms.body, bookingUrl)
-          await supabase.from('sms_messages').update({ sent_at: now }).eq('id', nextSms.id)
-          await supabase.from('lead_events').insert({
-            lead_id: leadId,
-            event_type: 'sms_sent',
-            description: `SMS ${nextSms.sequence_number} sent manually by admin to ${lead.phone}`,
-          })
-
-          // Update pending SMS-only leads to sms_sent so follow-up sequence picks them up
-          if (!hasEmail && lead.status === 'pending') {
-            await supabase.from('leads').update({ status: 'sms_sent' }).eq('id', leadId)
-          }
-
-          smsSeqSent = nextSms.sequence_number
+        } catch (smsErr) {
+          if (!hasEmail) throw smsErr // SMS-only: propagate → 500
+          console.error('[leads/send-next] SMS failed (email already sent, continuing):', smsErr)
         }
       }
     }
