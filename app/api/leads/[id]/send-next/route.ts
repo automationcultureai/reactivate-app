@@ -169,7 +169,9 @@ export async function POST(
     }
 
     // ── SMS ────────────────────────────────────────────────────────────────
-    if (hasSms) {
+    // For 'both' channel: SMS is managed by the follow-up cron based on email engagement.
+    // Per-lead send-next only advances SMS for SMS-only campaigns.
+    if (hasSms && !hasEmail) {
       if (!isTwilioConfigured()) {
         // For SMS-only channel this is fatal; for 'both' email already sent so skip gracefully
         if (!hasEmail) {
