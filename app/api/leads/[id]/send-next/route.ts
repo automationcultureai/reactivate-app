@@ -213,7 +213,13 @@ export async function POST(
           }
         } catch (smsErr) {
           if (!hasEmail) throw smsErr // SMS-only: propagate → 500
-          console.error('[leads/send-next] SMS failed (email already sent, continuing):', smsErr)
+          const msg = smsErr instanceof Error ? smsErr.message : String(smsErr)
+          console.error('[leads/send-next] SMS failed (email already sent, continuing):', msg)
+          return NextResponse.json({
+            success: true,
+            ...(emailSeqSent !== undefined && { sequence_number: emailSeqSent }),
+            sms_error: msg,
+          })
         }
       }
     }
