@@ -295,7 +295,9 @@ export function CampaignLeadList({
       const res = await fetch(`/api/leads/${lead.id}/send-next`, { method: 'POST' })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? 'Send failed'); return }
-      toast.success(`Email ${json.sequence_number} sent to ${lead.name}`)
+      const parts = [`Email ${json.sequence_number}`]
+      if (json.sms_sequence_number !== undefined) parts.push(`SMS ${json.sms_sequence_number}`)
+      toast.success(`${parts.join(' + ')} sent to ${lead.name}`)
       // Refresh lead status
       setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: 'emailed' as Lead['status'] } : l))
     } catch { toast.error('Something went wrong') }
