@@ -173,11 +173,11 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
               <input type="checkbox" checked={allSelected} onChange={toggleAll}
                 className="rounded border-border cursor-pointer" />
             </TableHead>
-            <TableHead className="font-medium">Lead</TableHead>
-            <TableHead className="font-medium">Appointment</TableHead>
-            <TableHead className="font-medium">Completed</TableHead>
-            <TableHead className="font-medium">By</TableHead>
-            <TableHead className="font-medium text-right">Commission</TableHead>
+            <TableHead className="font-medium w-48">Lead</TableHead>
+            <TableHead className="font-medium w-36">Appointment</TableHead>
+            <TableHead className="font-medium w-36">Completed</TableHead>
+            <TableHead className="font-medium w-24">By</TableHead>
+            <TableHead className="font-medium w-32 text-right">Commission</TableHead>
             <TableHead className="font-medium w-44">Invoice status</TableHead>
           </TableRow>
         </TableHeader>
