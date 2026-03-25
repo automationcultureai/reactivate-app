@@ -27,6 +27,7 @@ type BookingRow = {
   completed_by: string | null
   status: string
   leadName: string
+  campaignName: string
 }
 
 type CampaignGroup = {
@@ -111,58 +112,40 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
               </div>
             </button>
 
-            {/* Single table for all campaigns — campaign names appear as separator rows */}
+            {/* Single flat table — campaign name as inline column */}
             {isOpen && (
               <div className="border-t border-border">
                 <Table className="table-fixed w-full">
                   <TableHeader>
                     <TableRow className="bg-muted/20">
-                      <TableHead className="font-medium w-1/5">Lead</TableHead>
-                      <TableHead className="font-medium w-1/5">Scheduled</TableHead>
-                      <TableHead className="font-medium w-1/5">Completed</TableHead>
-                      <TableHead className="font-medium w-1/5">By</TableHead>
-                      <TableHead className="font-medium w-1/5">Status</TableHead>
+                      <TableHead className="font-medium w-1/6">Lead</TableHead>
+                      <TableHead className="font-medium w-1/6">Campaign</TableHead>
+                      <TableHead className="font-medium w-1/6">Scheduled</TableHead>
+                      <TableHead className="font-medium w-1/6">Completed</TableHead>
+                      <TableHead className="font-medium w-1/6">By</TableHead>
+                      <TableHead className="font-medium w-1/6">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {group.campaigns.map((campaign) => (
-                      <>
-                        {/* Campaign separator row */}
-                        <TableRow key={`sep-${campaign.campaignId}`} className="bg-muted/30 hover:bg-muted/30 border-t border-border">
-                          <TableCell colSpan={5} className="py-2 px-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-0.5 h-3.5 rounded-full bg-primary/50 shrink-0" />
-                                <span className="text-xs font-semibold text-foreground">{campaign.campaignName}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs">
-                                {campaign.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{campaign.counts.upcoming} upcoming</span>}
-                                {campaign.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{campaign.counts.completed} completed</span>}
-                                {campaign.counts.cancelled > 0 && <span className="text-muted-foreground">{campaign.counts.cancelled} cancelled</span>}
-                              </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-
-                        {/* Booking rows for this campaign */}
-                        {campaign.bookings.map((b) => {
-                          const badge = STATUS_BADGE[b.status] ?? { label: b.status, classes: 'bg-muted text-muted-foreground' }
-                          return (
-                            <TableRow key={b.id} className="hover:bg-muted/10">
-                              <TableCell className="font-medium text-foreground text-sm">{b.leadName}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
-                              <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
-                              <TableCell>
-                                <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
-                                  {badge.label}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </>
-                    ))}
+                    {group.campaigns.flatMap((campaign) =>
+                      campaign.bookings.map((b) => {
+                        const badge = STATUS_BADGE[b.status] ?? { label: b.status, classes: 'bg-muted text-muted-foreground' }
+                        return (
+                          <TableRow key={b.id} className="hover:bg-muted/10">
+                            <TableCell className="font-medium text-foreground text-sm">{b.leadName}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{campaign.campaignName}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
+                            <TableCell>
+                              <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
+                                {badge.label}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
                   </TableBody>
                 </Table>
               </div>

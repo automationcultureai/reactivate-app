@@ -25,7 +25,7 @@ export default async function AdminBookingsPage() {
   // Group: client → campaign → bookings (using plain objects for client component)
   type BookingRow = {
     id: string; scheduled_at: string; completed_at: string | null
-    completed_by: string | null; status: string; leadName: string
+    completed_by: string | null; status: string; leadName: string; campaignName: string
   }
   type CampaignGroup = {
     campaignId: string; campaignName: string; bookings: BookingRow[]
@@ -66,7 +66,7 @@ export default async function AdminBookingsPage() {
     camp.bookings.push({
       id: b.id, scheduled_at: b.scheduled_at, completed_at: b.completed_at,
       completed_by: b.completed_by, status: b.status,
-      leadName: lead?.name ?? 'Unknown',
+      leadName: lead?.name ?? 'Unknown', campaignName,
     })
     if (b.status === 'booked')     camp.counts.upcoming++
     if (b.status === 'completed' || b.status === 'disputed') camp.counts.completed++
