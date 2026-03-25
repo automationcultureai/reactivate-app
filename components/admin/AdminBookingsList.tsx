@@ -116,22 +116,26 @@ export function AdminBookingsList({ clientGroups }: { clientGroups: ClientGroupD
               <div className="border-t border-border divide-y divide-border">
                 {group.campaigns.map((campaign) => (
                   <div key={campaign.campaignId}>
-                    <div className="px-4 py-2 bg-muted/5 flex items-center justify-between">
-                      <p className="text-xs font-semibold text-foreground">{campaign.campaignName}</p>
-                      <div className="flex items-center gap-3 text-xs">
+                    {/* Campaign heading — Option B: full-width section divider */}
+                    <div className="px-4 py-3 bg-muted/30 border-b border-border flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-0.5 h-4 rounded-full bg-primary/60 shrink-0" />
+                        <p className="text-sm font-semibold text-foreground">{campaign.campaignName}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs shrink-0">
                         {campaign.counts.upcoming  > 0 && <span className="text-blue-600 dark:text-blue-400">{campaign.counts.upcoming} upcoming</span>}
                         {campaign.counts.completed > 0 && <span className="text-green-600 dark:text-green-400">{campaign.counts.completed} completed</span>}
                         {campaign.counts.cancelled > 0 && <span className="text-muted-foreground">{campaign.counts.cancelled} cancelled</span>}
                       </div>
                     </div>
-                    <Table>
+                    <Table className="table-fixed w-full">
                       <TableHeader>
                         <TableRow className="bg-muted/10">
-                          <TableHead className="font-medium w-[28%]">Lead</TableHead>
-                          <TableHead className="font-medium w-[28%]">Scheduled</TableHead>
-                          <TableHead className="font-medium w-[28%]">Completed</TableHead>
-                          <TableHead className="font-medium w-[8%]">By</TableHead>
-                          <TableHead className="font-medium w-[8%]">Status</TableHead>
+                          <TableHead className="font-medium w-1/5">Lead</TableHead>
+                          <TableHead className="font-medium w-1/5">Scheduled</TableHead>
+                          <TableHead className="font-medium w-1/5">Completed</TableHead>
+                          <TableHead className="font-medium w-1/5">By</TableHead>
+                          <TableHead className="font-medium w-1/5">Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
