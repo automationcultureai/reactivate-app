@@ -92,14 +92,14 @@ export function DashboardStats({
         label="Total spend"
         value={`$${(totalSpend / 100).toFixed(2)}`}
         sub="Commission charged for completed jobs"
-        tooltip="Total commission charged by the agency for all completed jobs. This is the sum of the flat fee per completed appointment."
+        tooltip="Total commission charged by the agency for all completed jobs."
       />
       {smsSent > 0 && (
         <StatCard
           label="Leads reached by SMS"
           value={String(uniqueSmsLeads)}
           sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
-          tooltip={`SMS is sent as a rescue channel when a lead hasn't opened an email after 48 hours. Sequence breakdown: SMS 1: ${smsSeqCounts.sms1} leads · SMS 2: ${smsSeqCounts.sms2} · SMS 3: ${smsSeqCounts.sms3} · SMS 4: ${smsSeqCounts.sms4}. Opt-out rate is the percentage of SMS-reached leads who replied STOP.`}
+          tooltip="The number of leads who were contacted by SMS during this campaign."
         />
       )}
     </div>

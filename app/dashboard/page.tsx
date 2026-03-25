@@ -90,6 +90,7 @@ export default async function DashboardPage() {
       .from('emails')
       .select('id', { count: 'exact', head: true })
       .in('lead_id', allLeadIds)
+      .eq('sequence_number', 1)
       .not('opened_at', 'is', null)
 
     const { count: smsCount } = await supabase
