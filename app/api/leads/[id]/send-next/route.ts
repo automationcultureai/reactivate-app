@@ -112,8 +112,11 @@ export async function POST(
         allEmails.filter((e) => e.sent_at).map((e) => e.sequence_number)
       )
 
-      // Next sequence number = first of [1,2,3,4] not yet sent
-      const nextSeqNum = ([1, 2, 3, 4] as const).find((seq) => !sentSeqNums.has(seq))
+      // Email 4 is only for leads who clicked the booking link — gate it on status
+      const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
+      const nextSeqNum = ([1, 2, 3, 4] as const).find(
+        (seq) => !sentSeqNums.has(seq) && (seq !== 4 || hasClicked)
+      )
 
       if (nextSeqNum === undefined) {
         return NextResponse.json({ error: 'No unsent emails remaining in sequence' }, { status: 400 })
@@ -128,7 +131,6 @@ export async function POST(
         )
       } else {
         // Seq 2 or 3 — pick the right variant based on lead behaviour
-        const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
         const hasOpened = hasClicked || allEmails.some((e) => e.opened_at)
         const variantSuffix = hasClicked ? 'clicked' : hasOpened ? 'opened' : 'unopened'
         const targetVariant = `${nextSeqNum}_${variantSuffix}`

@@ -122,7 +122,11 @@ export async function POST(
 
         const leadEmails = emailsByLead.get(lead.id) ?? []
         const sentSeqNums = new Set(leadEmails.filter((e) => e.sent_at).map((e) => e.sequence_number))
-        const nextSeqNum = ([1, 2, 3, 4] as const).find((s) => !sentSeqNums.has(s))
+        // Email 4 is only for leads who clicked the booking link — gate it on status
+        const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
+        const nextSeqNum = ([1, 2, 3, 4] as const).find(
+          (s) => !sentSeqNums.has(s) && (s !== 4 || hasClicked)
+        )
 
         if (nextSeqNum === undefined) { skipped++; continue }
 
@@ -133,7 +137,6 @@ export async function POST(
             (e) => e.sequence_number === nextSeqNum && e.branch_variant === null && !e.sent_at
           )
         } else {
-          const hasClicked = ['clicked', 'booked', 'completed'].includes(lead.status)
           const hasOpened = hasClicked || leadEmails.some((e) => e.opened_at)
           const variantSuffix = hasClicked ? 'clicked' : hasOpened ? 'opened' : 'unopened'
           nextEmail = leadEmails.find(
