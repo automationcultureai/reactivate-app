@@ -43,6 +43,9 @@ export default async function BillingPage({
     completed_at,
     completed_by,
     commission_owed,
+    commission_amount,
+    job_value,
+    receipt_url,
     commission_paid_at,
     invoice_sent_at,
     status,
@@ -92,7 +95,8 @@ export default async function BillingPage({
 
   type BookingRow = {
     id: string; scheduled_at: string; completed_at: string | null
-    completed_by: string | null; commission_owed: number; status: string
+    completed_by: string | null; commission_owed: number; commission_amount: number | null
+    job_value: number | null; receipt_url: string | null; status: string
     leadName: string; campaignId: string; campaignName: string; invoiceStatus: InvoiceStatus
   }
   type CampaignGroup = { campaignId: string; campaignName: string; bookings: BookingRow[]; total: number }
@@ -135,17 +139,22 @@ export default async function BillingPage({
     const row: BookingRow = {
       id: b.id, scheduled_at: b.scheduled_at, completed_at: b.completed_at,
       completed_by: b.completed_by, commission_owed: b.commission_owed,
+      commission_amount: b.commission_amount ?? null,
+      job_value: b.job_value ?? null,
+      receipt_url: b.receipt_url ?? null,
       status: b.status, leadName: lead?.name ?? 'Unknown',
       campaignId, campaignName, invoiceStatus,
     }
 
+    const effectiveCommission = b.commission_amount ?? b.commission_owed ?? 0
+
     cg.campaigns.get(campaignId)!.bookings.push(row)
-    cg.campaigns.get(campaignId)!.total += b.commission_owed ?? 0
+    cg.campaigns.get(campaignId)!.total += effectiveCommission
 
     if (!(b.status === 'disputed' && openDisputeIds.has(b.id))) {
-      if (invoiceStatus === 'invoice_paid')      cg.totalPaid        += b.commission_owed ?? 0
-      else if (invoiceStatus === 'invoice_sent') cg.totalInvoiced    += b.commission_owed ?? 0
-      else                                       cg.totalOutstanding += b.commission_owed ?? 0
+      if (invoiceStatus === 'invoice_paid')      cg.totalPaid        += effectiveCommission
+      else if (invoiceStatus === 'invoice_sent') cg.totalInvoiced    += effectiveCommission
+      else                                       cg.totalOutstanding += effectiveCommission
     }
   }
 

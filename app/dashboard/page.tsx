@@ -92,19 +92,17 @@ export default async function DashboardPage() {
   let smsOptedOut = 0
 
   if (allLeadIds.length > 0) {
-    const { count: sent } = await supabase
+    // Deduplicate by lead_id so open rate can never exceed 100%
+    const { data: seq1Emails } = await supabase
       .from('emails')
-      .select('id', { count: 'exact', head: true })
+      .select('lead_id, sent_at, opened_at')
       .in('lead_id', allLeadIds)
       .eq('sequence_number', 1)
-      .not('sent_at', 'is', null)
 
-    const { count: opened } = await supabase
-      .from('emails')
-      .select('id', { count: 'exact', head: true })
-      .in('lead_id', allLeadIds)
-      .eq('sequence_number', 1)
-      .not('opened_at', 'is', null)
+    const seq1Sent   = new Set((seq1Emails ?? []).filter(e => e.sent_at).map(e => e.lead_id))
+    const seq1Opened = new Set((seq1Emails ?? []).filter(e => e.opened_at).map(e => e.lead_id))
+    const sent   = seq1Sent.size
+    const opened = seq1Opened.size
 
     const { count: smsCount } = await supabase
       .from('sms_messages')
@@ -118,8 +116,8 @@ export default async function DashboardPage() {
       .in('id', allLeadIds)
       .eq('sms_opt_out', true)
 
-    emailsSent = sent ?? 0
-    openedCount = opened ?? 0
+    emailsSent = sent
+    openedCount = opened
     smsSent = smsCount ?? 0
     smsOptedOut = optedOut ?? 0
   }

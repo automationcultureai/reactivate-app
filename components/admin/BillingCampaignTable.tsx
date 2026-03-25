@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { BillingStatusSelect, STATUS_LABELS, type InvoiceStatus } from './BillingStatusSelect'
 import { Loader2 } from 'lucide-react'
+import { ReceiptButton } from './AdminBookingsList'
 
 export interface BillingBookingRow {
   id: string
@@ -27,6 +28,9 @@ export interface BillingBookingRow {
   completed_at: string | null
   completed_by: string | null
   commission_owed: number
+  commission_amount: number | null
+  job_value: number | null
+  receipt_url: string | null
   status: string
   leadName: string
   invoiceStatus: InvoiceStatus
@@ -177,6 +181,7 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
             <TableHead className="font-medium w-36">Appointment</TableHead>
             <TableHead className="font-medium w-36">Completed</TableHead>
             <TableHead className="font-medium w-24">By</TableHead>
+            <TableHead className="font-medium w-28 text-right">Job value</TableHead>
             <TableHead className="font-medium w-32 text-right">Commission</TableHead>
             <TableHead className="font-medium w-44">Invoice status</TableHead>
           </TableRow>
@@ -195,7 +200,15 @@ export function BillingCampaignTable({ campaignName, bookings, total }: BillingC
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.scheduled_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm">{fmtDate(b.completed_at)}</TableCell>
               <TableCell className="text-muted-foreground text-sm capitalize">{b.completed_by ?? '—'}</TableCell>
-              <TableCell className="text-right font-mono text-sm font-medium">{fmt(b.commission_owed)}</TableCell>
+              <TableCell className="text-right font-mono text-sm text-muted-foreground">
+                {b.job_value != null ? fmt(b.job_value) : '—'}
+              </TableCell>
+              <TableCell className="text-right font-mono text-sm font-medium">
+                <span className="inline-flex items-center gap-1.5 justify-end">
+                  {fmt(b.commission_amount ?? b.commission_owed)}
+                  {b.receipt_url && <ReceiptButton bookingId={b.id} />}
+                </span>
+              </TableCell>
               <TableCell>
                 <BillingStatusSelect
                   status={statusMap[b.id] ?? b.invoiceStatus}
