@@ -97,11 +97,12 @@ export function BillingClientList({ clientGroups }: { clientGroups: BillingClien
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {group.sendLogCampaigns.map((c) => (
-                        <DropdownMenuItem key={c.id} asChild>
-                          <a href={`/api/billing/send-log/${c.id}`}>
-                            <Download className="w-3 h-3 mr-2" />
-                            {c.name}
-                          </a>
+                        <DropdownMenuItem
+                          key={c.id}
+                          onClick={() => { window.location.href = `/api/billing/send-log/${c.id}` }}
+                        >
+                          <Download className="w-3 h-3 mr-2" />
+                          {c.name}
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
