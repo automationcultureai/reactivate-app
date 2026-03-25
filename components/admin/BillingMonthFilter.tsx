@@ -27,23 +27,21 @@ export function BillingMonthFilter({ selectedMonth, customFrom, customTo }: Prop
     months.push({ value, label })
   }
 
-  function selectMonth(month: string | null) {
+  const isCustomActive = !!(customFrom && customTo)
+  // Dropdown value: 'all' or a YYYY-MM string
+  const dropdownValue = isCustomActive ? '' : (selectedMonth ?? 'all')
+
+  function selectMonth(value: string) {
     setFromInput('')
     setToInput('')
     setError('')
-    router.push(month ? `/admin/billing?month=${month}` : '/admin/billing')
+    router.push(value === 'all' ? '/admin/billing' : `/admin/billing?month=${value}`)
   }
 
   function applyCustomRange() {
     setError('')
-    if (!fromInput || !toInput) {
-      setError('Please set both a start and end date.')
-      return
-    }
-    if (new Date(fromInput) > new Date(toInput)) {
-      setError('Start date must be before end date.')
-      return
-    }
+    if (!fromInput || !toInput) { setError('Please set both a start and end date.'); return }
+    if (new Date(fromInput) > new Date(toInput)) { setError('Start date must be before end date.'); return }
     router.push(`/admin/billing?from=${fromInput}&to=${toInput}`)
   }
 
@@ -54,43 +52,28 @@ export function BillingMonthFilter({ selectedMonth, customFrom, customTo }: Prop
     router.push('/admin/billing')
   }
 
-  const isCustomActive = !!(customFrom && customTo)
-
   return (
-    <div className="space-y-3">
-      {/* Month pills */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground mr-1">Month:</span>
-        <button
-          onClick={() => selectMonth(null)}
-          className={cn(
-            'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-            !selectedMonth && !isCustomActive
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
-          )}
+    <div className="flex items-center gap-4 flex-wrap">
+      {/* Month dropdown */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">Month:</span>
+        <select
+          value={dropdownValue}
+          onChange={(e) => selectMonth(e.target.value)}
+          className="h-7 rounded-md border border-border bg-background text-foreground text-xs px-2 focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
         >
-          All time
-        </button>
-        {months.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => selectMonth(value)}
-            className={cn(
-              'px-3 py-1 rounded-full text-xs font-medium border transition-colors',
-              selectedMonth === value && !isCustomActive
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'border-border text-muted-foreground hover:border-foreground hover:text-foreground'
-            )}
-          >
-            {label}
-          </button>
-        ))}
+          <option value="all">All time</option>
+          {months.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
       </div>
+
+      <span className="text-xs text-muted-foreground/40 hidden sm:block">·</span>
 
       {/* Custom date range */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground mr-1">Custom range:</span>
+        <span className="text-xs text-muted-foreground shrink-0">Custom range:</span>
         <input
           type="date"
           value={fromInput}

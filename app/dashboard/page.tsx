@@ -52,12 +52,25 @@ export default async function DashboardPage() {
 
   const clientDisplayName = client.business_name || client.name
 
-  const { data: leads } = await supabase
+  const { data: rawLeads } = await supabase
     .from('leads')
-    .select('id, name, status, created_at')
+    .select('id, name, status, created_at, campaign_id, campaigns(id, name)')
     .eq('client_id', client.id)
     .not('status', 'in', '(deleted)')
     .order('created_at', { ascending: false })
+
+  const leads = rawLeads
+
+  // Group leads by campaign for display
+  type LeadItem = NonNullable<typeof leads>[number]
+  const campaignMap = new Map<string, { campaignName: string; leads: LeadItem[] }>()
+  for (const l of leads ?? []) {
+    const campId = l.campaign_id ?? 'unknown'
+    const campName = (l.campaigns as { name: string } | null)?.name ?? 'Unknown Campaign'
+    if (!campaignMap.has(campId)) campaignMap.set(campId, { campaignName: campName, leads: [] })
+    campaignMap.get(campId)!.leads.push(l)
+  }
+  const leadsByCampaign = Array.from(campaignMap.values())
 
   const { data: rawBookings } = await supabase
     .from('bookings')
@@ -260,7 +273,7 @@ export default async function DashboardPage() {
               Contact details are not displayed here for privacy.
             </p>
           </div>
-          <DashboardLeads leads={leads ?? []} lastEventByLead={lastEventByLead} latestEmailByLead={latestEmailByLead} latestSmsByLead={latestSmsByLead} />
+          <DashboardLeads leadsByCampaign={leadsByCampaign} lastEventByLead={lastEventByLead} latestEmailByLead={latestEmailByLead} latestSmsByLead={latestSmsByLead} />
         </div>
       </main>
     </>

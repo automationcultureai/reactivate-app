@@ -1,27 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { SignOutButton } from '@clerk/nextjs'
 import { Zap, LogOut, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
-
-const AUTO_REFRESH_MS = 60_000 // 60 seconds
 
 interface DashboardNavProps {
   clientName: string
 }
 
 export function DashboardNav({ clientName }: DashboardNavProps) {
-  const router = useRouter()
   const [refreshing, setRefreshing] = useState(false)
-
-  // Auto-refresh silently in the background every 60s
-  useEffect(() => {
-    const id = setInterval(() => router.refresh(), AUTO_REFRESH_MS)
-    return () => clearInterval(id)
-  }, [router])
 
   function refresh() {
     setRefreshing(true)

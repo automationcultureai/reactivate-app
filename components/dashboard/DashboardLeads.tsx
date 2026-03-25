@@ -51,15 +51,70 @@ const SMS_SEQ_LABELS: Record<number, string> = {
   4: 'SMS 4 sent — Re-engagement',
 }
 
+type LeadRow = Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>
+
 interface DashboardLeadsProps {
-  leads: Pick<Lead, 'id' | 'name' | 'status' | 'created_at'>[]
+  leadsByCampaign: { campaignName: string; leads: LeadRow[] }[]
   lastEventByLead: Record<string, { event_type: string; created_at: string }>
   latestEmailByLead: Record<string, { sequence_number: number; sent_at: string }>
   latestSmsByLead: Record<string, { sequence_number: number; sent_at: string }>
 }
 
-export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead, latestSmsByLead }: DashboardLeadsProps) {
-  if (leads.length === 0) {
+function LastAction({
+  leadId,
+  latestEmailByLead,
+  latestSmsByLead,
+  lastEventByLead,
+}: {
+  leadId: string
+  latestEmailByLead: Record<string, { sequence_number: number; sent_at: string }>
+  latestSmsByLead: Record<string, { sequence_number: number; sent_at: string }>
+  lastEventByLead: Record<string, { event_type: string; created_at: string }>
+}) {
+  const email = latestEmailByLead[leadId]
+  const sms = latestSmsByLead[leadId]
+  const event = lastEventByLead[leadId]
+
+  if (!email && !sms && !event) {
+    return <span className="text-muted-foreground text-sm">No activity yet</span>
+  }
+
+  const emailTime = email ? new Date(email.sent_at).getTime() : 0
+  const smsTime = sms ? new Date(sms.sent_at).getTime() : 0
+  const eventTime = event ? new Date(event.created_at).getTime() : 0
+  const mostRecentTime = Math.max(emailTime, smsTime, eventTime)
+
+  if (sms && smsTime === mostRecentTime) {
+    return (
+      <div>
+        <p className="text-sm text-foreground">{SMS_SEQ_LABELS[sms.sequence_number] ?? `SMS ${sms.sequence_number} sent`}</p>
+        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(sms.sent_at), { addSuffix: true })}</p>
+      </div>
+    )
+  }
+
+  if (email && emailTime === mostRecentTime) {
+    return (
+      <div>
+        <p className="text-sm text-foreground">{EMAIL_SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number} sent`}</p>
+        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(email.sent_at), { addSuffix: true })}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-sm text-foreground">{EVENT_LABELS[event!.event_type] ?? event!.event_type}</p>
+      <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(event!.created_at), { addSuffix: true })}</p>
+    </div>
+  )
+}
+
+export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailByLead, latestSmsByLead }: DashboardLeadsProps) {
+  const totalLeads = leadsByCampaign.reduce((s, g) => s + g.leads.length, 0)
+  const showHeaders = leadsByCampaign.length > 1
+
+  if (totalLeads === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
         <Users className="w-7 h-7 text-muted-foreground/30 mb-2" />
@@ -80,85 +135,42 @@ export function DashboardLeads({ leads, lastEventByLead, latestEmailByLead, late
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leads.map((lead) => {
-            const badge = STATUS_BADGE[lead.status] ?? {
-              label: lead.status,
-              classes: 'bg-muted text-muted-foreground',
-            }
-            return (
-              <TableRow key={lead.id} className="hover:bg-muted/10">
-                <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
-                <TableCell>
-                  <span
-                    className={cn(
-                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                      badge.classes
-                    )}
-                  >
-                    {badge.label}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {(() => {
-                    const email = latestEmailByLead[lead.id]
-                    const sms = latestSmsByLead[lead.id]
-                    const event = lastEventByLead[lead.id]
-
-                    const emailTime = email ? new Date(email.sent_at).getTime() : 0
-                    const smsTime = sms ? new Date(sms.sent_at).getTime() : 0
-                    const eventTime = event ? new Date(event.created_at).getTime() : 0
-
-                    if (!email && !sms && !event) {
-                      return <span className="text-muted-foreground text-sm">No activity yet</span>
-                    }
-
-                    const mostRecentTime = Math.max(emailTime, smsTime, eventTime)
-
-                    if (sms && smsTime === mostRecentTime) {
-                      return (
-                        <div>
-                          <p className="text-sm text-foreground">
-                            {SMS_SEQ_LABELS[sms.sequence_number] ?? `SMS ${sms.sequence_number} sent`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(sms.sent_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      )
-                    }
-
-                    if (email && emailTime === mostRecentTime) {
-                      return (
-                        <div>
-                          <p className="text-sm text-foreground">
-                            {EMAIL_SEQ_LABELS[email.sequence_number] ?? `Email ${email.sequence_number} sent`}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(email.sent_at), { addSuffix: true })}
-                          </p>
-                        </div>
-                      )
-                    }
-
-                    // Event is most recent (clicked, booked, etc.)
-                    return (
-                      <div>
-                        <p className="text-sm text-foreground">
-                          {EVENT_LABELS[event!.event_type] ?? event!.event_type}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(event!.created_at), { addSuffix: true })}
-                        </p>
-                      </div>
-                    )
-                  })()}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-                </TableCell>
-              </TableRow>
-            )
-          })}
+          {leadsByCampaign.map(({ campaignName, leads }) => (
+            <>
+              {showHeaders && (
+                <TableRow key={`header-${campaignName}`} className="bg-muted/20 hover:bg-muted/20">
+                  <TableCell colSpan={4} className="py-2 px-4">
+                    <span className="text-xs font-semibold text-foreground">{campaignName}</span>
+                    <span className="text-xs text-muted-foreground ml-2">· {leads.length} lead{leads.length !== 1 ? 's' : ''}</span>
+                  </TableCell>
+                </TableRow>
+              )}
+              {leads.map((lead) => {
+                const badge = STATUS_BADGE[lead.status] ?? { label: lead.status, classes: 'bg-muted text-muted-foreground' }
+                return (
+                  <TableRow key={lead.id} className="hover:bg-muted/10">
+                    <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
+                    <TableCell>
+                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
+                        {badge.label}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <LastAction
+                        leadId={lead.id}
+                        latestEmailByLead={latestEmailByLead}
+                        latestSmsByLead={latestSmsByLead}
+                        lastEventByLead={lastEventByLead}
+                      />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </>
+          ))}
         </TableBody>
       </Table>
     </div>

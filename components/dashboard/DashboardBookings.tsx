@@ -218,7 +218,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="font-medium">Status</TableHead>
               <TableHead className="font-medium">Job value</TableHead>
-              <TableHead className="font-medium">Commission</TableHead>
+              <TableHead className="font-medium">Fee owed</TableHead>
               <TableHead className="w-56 font-medium">Manage</TableHead>
             </TableRow>
           </TableHeader>
@@ -366,7 +366,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               </div>
             </div>
             <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-              Commission owed:{' '}
+              Fee owed:{' '}
               <span className={cn('font-medium', jobValueValid || commissionType === 'flat' ? 'text-foreground' : '')}>
                 {calcPreviewCommission()}
               </span>
