@@ -66,7 +66,7 @@ export default async function DashboardPage() {
   const campaignMap = new Map<string, { campaignName: string; leads: LeadItem[] }>()
   for (const l of leads ?? []) {
     const campId = l.campaign_id ?? 'unknown'
-    const campName = (l.campaigns as { name: string } | null)?.name ?? 'Unknown Campaign'
+    const campName = (l.campaigns as unknown as { name: string } | null)?.name ?? 'Unknown Campaign'
     if (!campaignMap.has(campId)) campaignMap.set(campId, { campaignName: campName, leads: [] })
     campaignMap.get(campId)!.leads.push(l)
   }
