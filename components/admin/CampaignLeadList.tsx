@@ -23,6 +23,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from '@/components/ui/select'
+import {
   ChevronDown,
   ChevronRight,
   Trash2,
@@ -38,6 +44,7 @@ import {
   X,
   MessageSquare,
   UserX,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -119,6 +126,10 @@ export function CampaignLeadList({
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkActioning, setBulkActioning] = useState<'send_next_email' | 'send_next_sms' | 'unsubscribe' | null>(null)
   const [confirmBulkUnsubscribe, setConfirmBulkUnsubscribe] = useState(false)
+  const [bulkWave, setBulkWave] = useState<1 | 2 | 3>(1)
+  const [settingWave, setSettingWave] = useState<string | null>(null) // lead id
+  const [sendingWave, setSendingWave] = useState<2 | 3 | null>(null)
+  const [confirmSendWave, setConfirmSendWave] = useState<2 | 3 | null>(null)
   const [search, setSearch] = useState('')
   const [collapsedWaves, setCollapsedWaves] = useState<Set<number>>(new Set())
   const [editingEmail, setEditingEmail] = useState<{
@@ -302,6 +313,74 @@ export function CampaignLeadList({
     finally { setSendingNext(null) }
   }
 
+  async function handleWaveChange(leadId: string, wave: 1 | 2 | 3) {
+    const prev = leads.find((l) => l.id === leadId)?.rfm_wave ?? 1
+    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, rfm_wave: wave } : l))
+    setSettingWave(leadId)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/leads/wave`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids: [leadId], wave }),
+      })
+      if (!res.ok) {
+        setLeads((p) => p.map((l) => l.id === leadId ? { ...l, rfm_wave: prev } : l))
+        toast.error('Failed to update wave')
+      }
+    } catch {
+      setLeads((p) => p.map((l) => l.id === leadId ? { ...l, rfm_wave: prev } : l))
+      toast.error('Something went wrong')
+    } finally {
+      setSettingWave(null)
+    }
+  }
+
+  async function handleBulkWaveChange(wave: 1 | 2 | 3) {
+    const ids = Array.from(selected)
+    const prevMap: Record<string, number> = {}
+    ids.forEach((id) => { prevMap[id] = leads.find((l) => l.id === id)?.rfm_wave ?? 1 })
+    setLeads((prev) => prev.map((l) => selected.has(l.id) ? { ...l, rfm_wave: wave } : l))
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/leads/wave`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids: ids, wave }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setLeads((prev) => prev.map((l) => selected.has(l.id) ? { ...l, rfm_wave: prevMap[l.id] } : l))
+        toast.error(json.error ?? 'Failed to update wave')
+        return
+      }
+      toast.success(`${json.updated} lead${json.updated !== 1 ? 's' : ''} moved to Wave ${wave}`)
+      setSelected(new Set())
+    } catch {
+      setLeads((prev) => prev.map((l) => selected.has(l.id) ? { ...l, rfm_wave: prevMap[l.id] } : l))
+      toast.error('Something went wrong')
+    }
+  }
+
+  async function handleSendWave(wave: 2 | 3) {
+    setSendingWave(wave)
+    setConfirmSendWave(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/send-wave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wave }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Send failed'); return }
+      toast.success(json.message)
+      setLeads((prev) => prev.map((l) =>
+        (l.rfm_wave ?? 1) === wave && l.status === 'pending'
+          ? { ...l, status: 'emailed' as Lead['status'] }
+          : l
+      ))
+    } catch { toast.error('Something went wrong') }
+    finally { setSendingWave(null) }
+  }
+
   async function handleSaveEmail() {
     if (!editingEmail) return
     setSavingEmail(true)
@@ -345,6 +424,28 @@ export function CampaignLeadList({
             <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
               Deselect all
             </Button>
+            {/* Bulk wave change */}
+            <div className="flex items-center gap-1">
+              <Select
+                value={String(bulkWave)}
+                onValueChange={(v) => setBulkWave(Number(v) as 1 | 2 | 3)}
+              >
+                <SelectTrigger className="h-8 text-xs w-24">
+                  <span className="flex flex-1 text-left">Wave {bulkWave}</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Wave 1</SelectItem>
+                  <SelectItem value="2">Wave 2</SelectItem>
+                  <SelectItem value="3">Wave 3</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => handleBulkWaveChange(bulkWave)}
+              >
+                Set wave
+              </Button>
+            </div>
             {canSendNext && (
               <>
                 <Button
@@ -458,13 +559,27 @@ export function CampaignLeadList({
                     })}
                   >
                     <TableCell colSpan={7} className="py-2 px-4">
-                      <div className="flex items-center gap-2 text-xs font-medium">
-                        {collapsedWaves.has(wave)
-                          ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                          : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                        }
-                        <span className={WAVE_BADGE[wave]}>{WAVE_LABELS[wave]}</span>
-                        <span className="text-muted-foreground">· {groupLeads.length} lead{groupLeads.length !== 1 ? 's' : ''}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-medium">
+                          {collapsedWaves.has(wave)
+                            ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                          }
+                          <span className={WAVE_BADGE[wave]}>{WAVE_LABELS[wave]}</span>
+                          <span className="text-muted-foreground">· {groupLeads.length} lead{groupLeads.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        {/* Send wave now — only for waves 2/3 on active campaigns with pending leads */}
+                        {campaignStatus === 'active' && (wave === 2 || wave === 3) &&
+                          groupLeads.some((l) => l.status === 'pending') && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmSendWave(wave) }}
+                            className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors"
+                            title={`Send Wave ${wave} now (bypass timing delay)`}
+                          >
+                            <Zap className="w-3 h-3" />
+                            Send now
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -517,6 +632,25 @@ export function CampaignLeadList({
                               {rfmTotal}/9
                             </span>
                           )}
+                          {/* Individual wave select */}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={String(lead.rfm_wave ?? 1)}
+                              onValueChange={(v) => handleWaveChange(lead.id, Number(v) as 1 | 2 | 3)}
+                              disabled={settingWave === lead.id}
+                            >
+                              <SelectTrigger className="h-5 text-xs px-1.5 border-none bg-transparent hover:bg-muted/50 w-auto gap-1 shadow-none">
+                                <span className={cn('text-xs font-medium', WAVE_BADGE[lead.rfm_wave ?? 1])}>
+                                  W{lead.rfm_wave ?? 1}
+                                </span>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">Wave 1 — High Priority</SelectItem>
+                                <SelectItem value="2">Wave 2 — Medium Priority</SelectItem>
+                                <SelectItem value="3">Wave 3 — Low Priority</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                         {lead.email_opt_out && (
                           <span className="text-xs text-muted-foreground">Opted out</span>
@@ -741,6 +875,35 @@ export function CampaignLeadList({
           }}
         />
       )}
+
+      {/* Send wave confirmation */}
+      <Dialog open={confirmSendWave !== null} onOpenChange={(open) => !open && setConfirmSendWave(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500" />
+              <DialogTitle>Send Wave {confirmSendWave} now</DialogTitle>
+            </div>
+            <DialogDescription>
+              This will immediately send Email 1 to all pending Wave {confirmSendWave} leads,
+              bypassing the normal {confirmSendWave === 2 ? '3-day' : '5-day'} delay.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmSendWave(null)} disabled={sendingWave !== null}>Cancel</Button>
+            <Button
+              onClick={() => confirmSendWave && handleSendWave(confirmSendWave)}
+              disabled={sendingWave !== null}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {sendingWave !== null
+                ? <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Sending…</>
+                : `Send Wave ${confirmSendWave} now`
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Erase confirmation */}
       <Dialog open={eraseTarget !== null} onOpenChange={(open) => !open && setEraseTarget(null)}>
