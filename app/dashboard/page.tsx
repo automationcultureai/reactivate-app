@@ -188,6 +188,16 @@ export default async function DashboardPage() {
   const completedCount = (leads ?? []).filter((l) => l.status === 'completed').length
   const bookedCount = rawBookedCount + completedCount
 
+  // Leads who converted (booked or completed) and were contacted via email / SMS
+  const emailLeadIds = new Set(Object.keys(latestEmailByLead))
+  const smsLeadIds = new Set(Object.keys(latestSmsByLead))
+  const bookedFromEmail = (leads ?? []).filter(
+    (l) => ['booked', 'completed'].includes(l.status) && emailLeadIds.has(l.id)
+  ).length
+  const bookedFromSMS = (leads ?? []).filter(
+    (l) => ['booked', 'completed'].includes(l.status) && smsLeadIds.has(l.id)
+  ).length
+
   const { data: allDisputes } = await supabase
     .from('commission_disputes')
     .select('booking_id, status, admin_notes, reason')
@@ -214,7 +224,7 @@ export default async function DashboardPage() {
       <DashboardNav clientName={clientDisplayName} />
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
-        <h1 className="text-2xl font-bold text-foreground">Campaign Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">Client Dashboard</h1>
 
         <DashboardStats
           totalLeads={totalLeads}
@@ -223,11 +233,11 @@ export default async function DashboardPage() {
           openedCount={openedCount}
           clickedCount={clickedCount}
           completedCount={completedCount}
-          totalSpend={totalSpend}
           smsSent={smsSent}
           smsOptedOut={smsOptedOut}
-          uniqueSmsLeads={uniqueSmsLeads}
           smsSeqCounts={smsSeqCounts}
+          bookedFromEmail={bookedFromEmail}
+          bookedFromSMS={bookedFromSMS}
         />
 
         <div className="space-y-4">
