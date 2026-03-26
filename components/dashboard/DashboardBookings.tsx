@@ -34,10 +34,10 @@ import { AlertCircle, Loader2, Calendar, Paperclip, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
-  booked:    { label: 'Upcoming',  classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
-  completed: { label: 'Completed', classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
-  cancelled: { label: 'Cancelled', classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
-  disputed:  { label: 'Disputed',  classes: 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
+  booked:    { label: 'Upcoming',  classes: 'bg-blue-100 border border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-400/25 dark:text-blue-400 dark:shadow-[0_0_8px_rgba(59,130,246,0.12)] midnight:bg-blue-500/10 midnight:border-blue-400/25 midnight:text-blue-400 midnight:shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  completed: { label: 'Completed', classes: 'bg-green-100 border border-green-300 text-green-700 dark:bg-green-500/10 dark:border-green-400/25 dark:text-green-400 dark:shadow-[0_0_8px_rgba(34,197,94,0.12)] midnight:bg-green-500/10 midnight:border-green-400/25 midnight:text-green-400 midnight:shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  cancelled: { label: 'Cancelled', classes: 'bg-gray-100 border border-gray-300 text-gray-500 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground midnight:bg-white/5 midnight:border-white/10 midnight:text-muted-foreground' },
+  disputed:  { label: 'Disputed',  classes: 'bg-amber-100 border border-amber-300 text-amber-700 dark:bg-amber-500/10 dark:border-amber-400/25 dark:text-amber-400 dark:shadow-[0_0_8px_rgba(251,191,36,0.12)] midnight:bg-amber-500/10 midnight:border-amber-400/25 midnight:text-amber-400 midnight:shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
 }
 
 interface DashboardBookingsProps {
@@ -198,7 +198,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   return (
     <>
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 border-b border-border">
@@ -223,13 +223,13 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               if (booking.status === 'disputed' || wasJustRaised) {
                 if (dispute?.status === 'resolved') {
                   displayStatus = 'Dispute upheld'
-                  displayClass = 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]'
+                  displayClass = 'bg-green-100 border border-green-300 text-green-700 dark:bg-green-500/10 dark:border-green-400/25 dark:text-green-400 dark:shadow-[0_0_8px_rgba(34,197,94,0.12)] midnight:bg-green-500/10 midnight:border-green-400/25 midnight:text-green-400 midnight:shadow-[0_0_8px_rgba(34,197,94,0.12)]'
                 } else if (dispute?.status === 'rejected') {
                   displayStatus = 'Dispute rejected'
-                  displayClass = 'bg-destructive/10 border border-destructive/25 text-destructive'
+                  displayClass = 'bg-red-100 border border-red-300 text-red-700 dark:bg-destructive/10 dark:border-destructive/25 dark:text-destructive midnight:bg-destructive/10 midnight:border-destructive/25 midnight:text-destructive'
                 } else {
                   displayStatus = 'Disputed'
-                  displayClass = 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]'
+                  displayClass = 'bg-amber-100 border border-amber-300 text-amber-700 dark:bg-amber-500/10 dark:border-amber-400/25 dark:text-amber-400 dark:shadow-[0_0_8px_rgba(251,191,36,0.12)] midnight:bg-amber-500/10 midnight:border-amber-400/25 midnight:text-amber-400 midnight:shadow-[0_0_8px_rgba(251,191,36,0.12)]'
                 }
               } else {
                 const badge = STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-white/5 border border-white/10 text-muted-foreground' }
@@ -280,7 +280,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                         <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" align="end" className="min-w-[140px] w-auto">
+                        <DropdownMenuContent side="right" align="start" className="min-w-[140px] w-auto">
                           <DropdownMenuItem onClick={() => handleOpenComplete(booking.id)}>
                             Mark complete
                           </DropdownMenuItem>
@@ -295,7 +295,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                         <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent side="bottom" align="end" className="min-w-[140px] w-auto">
+                        <DropdownMenuContent side="right" align="start" className="min-w-[140px] w-auto">
                           <DropdownMenuItem onClick={() => handleOpenComplete(booking.id)}>
                             Edit
                           </DropdownMenuItem>
@@ -305,7 +305,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                               setDisputeReason('')
                             }}
                           >
-                            Raise dispute
+                            Query
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

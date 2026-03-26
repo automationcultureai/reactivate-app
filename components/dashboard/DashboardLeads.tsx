@@ -12,15 +12,15 @@ import { cn } from '@/lib/utils'
 import { Users } from 'lucide-react'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
-  pending:      { label: 'Contact made', classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
-  emailed:      { label: 'Contacted',    classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
-  sms_sent:     { label: 'Contacted',    classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
-  clicked:      { label: 'Interested',   classes: 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
-  booked:       { label: 'Booked',       classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
-  completed:    { label: 'Completed',    classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
-  unsubscribed: { label: 'Opted out',    classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
-  cancelled:    { label: 'Cancelled',    classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
-  send_failed:  { label: 'Send failed',  classes: 'bg-destructive/10 border border-destructive/25 text-destructive' },
+  pending:      { label: 'Contact made', classes: 'bg-gray-100 border border-gray-300 text-gray-500 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground midnight:bg-white/5 midnight:border-white/10 midnight:text-muted-foreground' },
+  emailed:      { label: 'Contacted',    classes: 'bg-blue-100 border border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-400/25 dark:text-blue-400 dark:shadow-[0_0_8px_rgba(59,130,246,0.12)] midnight:bg-blue-500/10 midnight:border-blue-400/25 midnight:text-blue-400 midnight:shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  sms_sent:     { label: 'Contacted',    classes: 'bg-blue-100 border border-blue-300 text-blue-700 dark:bg-blue-500/10 dark:border-blue-400/25 dark:text-blue-400 dark:shadow-[0_0_8px_rgba(59,130,246,0.12)] midnight:bg-blue-500/10 midnight:border-blue-400/25 midnight:text-blue-400 midnight:shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  clicked:      { label: 'Interested',   classes: 'bg-amber-100 border border-amber-300 text-amber-700 dark:bg-amber-500/10 dark:border-amber-400/25 dark:text-amber-400 dark:shadow-[0_0_8px_rgba(251,191,36,0.12)] midnight:bg-amber-500/10 midnight:border-amber-400/25 midnight:text-amber-400 midnight:shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
+  booked:       { label: 'Booked',       classes: 'bg-green-100 border border-green-300 text-green-700 dark:bg-green-500/10 dark:border-green-400/25 dark:text-green-400 dark:shadow-[0_0_8px_rgba(34,197,94,0.12)] midnight:bg-green-500/10 midnight:border-green-400/25 midnight:text-green-400 midnight:shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  completed:    { label: 'Completed',    classes: 'bg-green-100 border border-green-300 text-green-700 dark:bg-green-500/10 dark:border-green-400/25 dark:text-green-400 dark:shadow-[0_0_8px_rgba(34,197,94,0.12)] midnight:bg-green-500/10 midnight:border-green-400/25 midnight:text-green-400 midnight:shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  unsubscribed: { label: 'Opted out',    classes: 'bg-gray-100 border border-gray-300 text-gray-500 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground midnight:bg-white/5 midnight:border-white/10 midnight:text-muted-foreground' },
+  cancelled:    { label: 'Cancelled',    classes: 'bg-gray-100 border border-gray-300 text-gray-500 dark:bg-white/5 dark:border-white/10 dark:text-muted-foreground midnight:bg-white/5 midnight:border-white/10 midnight:text-muted-foreground' },
+  send_failed:  { label: 'Send failed',  classes: 'bg-red-100 border border-red-300 text-red-700 dark:bg-destructive/10 dark:border-destructive/25 dark:text-destructive midnight:bg-destructive/10 midnight:border-destructive/25 midnight:text-destructive' },
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -129,7 +129,7 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
   )
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 border-b border-border">

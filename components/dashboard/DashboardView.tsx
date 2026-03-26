@@ -14,11 +14,11 @@ interface DashboardViewProps {
   openedCount: number
   clickedCount: number
   completedCount: number
-  totalSpend: number
   smsSent: number
   smsOptedOut: number
-  uniqueSmsLeads: number
   smsSeqCounts: { sms1: number; sms2: number; sms3: number; sms4: number }
+  bookedFromEmail: number
+  bookedFromSMS: number
   // Chart props
   bookingsByMonth: { month: string; bookings: number; completed: number }[]
 }
@@ -58,11 +58,11 @@ export function DashboardView(props: DashboardViewProps) {
           openedCount={props.openedCount}
           clickedCount={props.clickedCount}
           completedCount={props.completedCount}
-          totalSpend={props.totalSpend}
           smsSent={props.smsSent}
           smsOptedOut={props.smsOptedOut}
-          uniqueSmsLeads={props.uniqueSmsLeads}
           smsSeqCounts={props.smsSeqCounts}
+          bookedFromEmail={props.bookedFromEmail}
+          bookedFromSMS={props.bookedFromSMS}
         />
       ) : (
         <DashboardCharts
