@@ -214,7 +214,7 @@ export default async function DashboardPage() {
       <DashboardNav clientName={clientDisplayName} />
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">Campaign Dashboard</h1>
 
         <DashboardStats
           totalLeads={totalLeads}
@@ -232,13 +232,10 @@ export default async function DashboardPage() {
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              Bookings
-            </h2>
+            <h2 className="text-lg font-semibold text-foreground">Bookings</h2>
             {bookings.length > 0 && (
-              <span className="text-xs text-muted-foreground/60">({bookings.length})</span>
+              <span className="text-sm text-muted-foreground/60">({bookings.length})</span>
             )}
-            <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
           </div>
           <DashboardBookings
             bookings={bookings}
@@ -251,13 +248,10 @@ export default async function DashboardPage() {
         <div className="space-y-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-sm font-semibold text-foreground">
-                Leads
-              </h2>
+              <h2 className="text-lg font-semibold text-foreground">Leads</h2>
               {leads && leads.length > 0 && (
-                <span className="text-xs text-muted-foreground/60">({leads.length})</span>
+                <span className="text-sm text-muted-foreground/60">({leads.length})</span>
               )}
-              <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
             </div>
             <p className="text-xs text-muted-foreground">
               Contact details are not displayed here for privacy.

@@ -71,43 +71,45 @@ function StatCard({
   tooltip: string
 }) {
   return (
-    <motion.div
-      variants={cardVariants}
-      whileHover={{ scale: 1.015 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className="relative rounded-xl cursor-default"
-      style={{ boxShadow: SHADOW_LIGHT }}
-    >
-      {/* Dark/midnight shadow override via CSS class */}
-      <style>{`.dark .stat-rim,.midnight .stat-rim{box-shadow:${SHADOW_DARK}!important}`}</style>
-      <div className="stat-rim absolute inset-0 rounded-xl pointer-events-none" />
+    // Outer wrapper: no transform, controls z-index so tooltip clears sibling cards
+    <motion.div variants={cardVariants} className="relative z-0 hover:z-[999]">
+      <motion.div
+        whileHover={{ scale: 1.015 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="relative rounded-xl cursor-default"
+        style={{ boxShadow: SHADOW_LIGHT }}
+      >
+        {/* Dark/midnight shadow override */}
+        <style>{`.dark .stat-rim,.midnight .stat-rim{box-shadow:${SHADOW_DARK}!important}`}</style>
+        <div className="stat-rim absolute inset-0 rounded-xl pointer-events-none" />
 
-      {/* Backdrop glass distortion */}
-      <div
-        className="absolute inset-0 z-0 overflow-hidden rounded-xl"
-        style={{ backdropFilter: 'url("#stat-glass") blur(12px)' }}
-      />
+        {/* Backdrop glass distortion */}
+        <div
+          className="absolute inset-0 z-0 overflow-hidden rounded-xl"
+          style={{ backdropFilter: 'url("#stat-glass") blur(12px)' }}
+        />
 
-      {/* White tint */}
-      <div className="absolute inset-0 z-10 rounded-xl bg-white/30 dark:bg-white/[0.06] midnight:bg-white/[0.08]" />
+        {/* White tint */}
+        <div className="absolute inset-0 z-10 rounded-xl bg-white/30 dark:bg-white/[0.06] midnight:bg-white/[0.08]" />
 
-      {/* Content — overflow:visible so tooltip can escape */}
-      <div className="relative z-20 p-4">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-sm font-medium text-muted-foreground leading-tight">{label}</p>
-          <div className="relative group flex-shrink-0">
-            <Info className="w-3.5 h-3.5 text-muted-foreground/30 cursor-help mt-0.5" />
-            {/* Tooltip — positioned above, no clip */}
-            <div className="absolute right-0 bottom-full mb-2 z-[100] hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-lg pointer-events-none">
-              {tooltip}
+        {/* Content */}
+        <div className="relative z-20 p-4">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <p className="text-sm font-medium text-muted-foreground leading-tight">{label}</p>
+            <div className="relative group flex-shrink-0">
+              <Info className="w-3.5 h-3.5 text-muted-foreground/40 cursor-help mt-0.5" />
+              {/* Tooltip — z-[9999] so it clears all sibling cards' stacking contexts */}
+              <div className="absolute right-0 bottom-full mb-2 z-[9999] hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-xl pointer-events-none">
+                {tooltip}
+              </div>
             </div>
           </div>
+          <p className="text-2xl font-bold text-foreground leading-none">
+            {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
+          </p>
+          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
         </div>
-        <p className="text-2xl font-bold text-foreground leading-none">
-          {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
-        </p>
-        {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
-      </div>
+      </motion.div>
     </motion.div>
   )
 }
@@ -200,21 +202,39 @@ export function DashboardStats({
           tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
         />
 
-        {/* Row 3: Finance + optional SMS */}
+        {/* Row 3: Finance */}
         <StatCard
           label="Total spend"
           value={`$${(totalSpend / 100).toFixed(2)}`}
           sub="Commission charged for completed jobs"
           tooltip="Total commission charged by the agency for all completed jobs."
         />
+
+        {/* SMS section — only when SMS is active */}
         {smsSent > 0 && (
-          <StatCard
-            label="Leads reached by SMS"
-            value={String(uniqueSmsLeads)}
-            numericValue={uniqueSmsLeads}
-            sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
-            tooltip="The number of leads who were contacted by SMS during this campaign."
-          />
+          <>
+            <StatCard
+              label="Leads reached by SMS"
+              value={String(uniqueSmsLeads)}
+              numericValue={uniqueSmsLeads}
+              sub="received at least one SMS"
+              tooltip="The number of unique leads who were contacted by SMS during this campaign."
+            />
+            <StatCard
+              label="Total SMS sent"
+              value={String(smsSent)}
+              numericValue={smsSent}
+              sub={`across all sequences`}
+              tooltip="Total number of SMS messages sent across all sequences and leads."
+            />
+            <StatCard
+              label="SMS opt-outs"
+              value={String(smsOptedOut)}
+              numericValue={smsOptedOut}
+              sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
+              tooltip="Number of leads who replied STOP or opted out of SMS messages."
+            />
+          </>
         )}
       </motion.div>
     </>

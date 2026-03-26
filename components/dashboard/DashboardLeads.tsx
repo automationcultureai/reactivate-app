@@ -117,7 +117,7 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
 
   if (totalLeads === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 glass-panel rounded-xl border-dashed text-center">
+      <div className="flex flex-col items-center justify-center py-10 bg-card border border-dashed border-border rounded-xl text-center">
         <Users className="w-7 h-7 text-muted-foreground/30 mb-2" />
         <p className="text-sm text-muted-foreground">No leads yet</p>
       </div>
@@ -129,10 +129,10 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
   )
 
   return (
-    <div className="glass-panel rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="glass-row-hover" style={{ background: 'var(--glass-header-bg)', borderBottom: '1px solid var(--glass-border-color)' }}>
+          <TableRow className="bg-muted/50 border-b border-border">
             <TableHead className="font-medium">Name</TableHead>
             <TableHead className="font-medium">Campaign</TableHead>
             <TableHead className="font-medium">Status</TableHead>
@@ -144,11 +144,9 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
           {allLeads.map((lead) => {
             const badge = STATUS_BADGE[lead.status] ?? { label: lead.status, classes: 'bg-muted text-muted-foreground' }
             return (
-              <TableRow key={lead.id} className="glass-row-hover transition-colors duration-100 border-b" style={{ borderColor: 'var(--glass-border-color)' }}>
-                <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
-                <TableCell>
-                  <span className="text-xs text-muted-foreground">{lead.campaignName}</span>
-                </TableCell>
+              <TableRow key={lead.id} className="hover:bg-muted/30 transition-colors duration-100 border-b border-border">
+                <TableCell className="text-sm font-medium text-foreground">{lead.name}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{lead.campaignName}</TableCell>
                 <TableCell>
                   <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
                     {badge.label}

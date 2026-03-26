@@ -189,7 +189,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   if (bookings.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 glass-panel rounded-xl border-dashed text-center">
+      <div className="flex flex-col items-center justify-center py-10 bg-card border border-dashed border-border rounded-xl text-center">
         <Calendar className="w-7 h-7 text-muted-foreground/30 mb-2" />
         <p className="text-sm text-muted-foreground">No bookings yet</p>
       </div>
@@ -198,10 +198,10 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   return (
     <>
-      <div className="glass-panel rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="glass-row-hover" style={{ background: 'var(--glass-header-bg)', borderBottom: '1px solid var(--glass-border-color)' }}>
+            <TableRow className="bg-muted/50 border-b border-border">
               <TableHead className="font-medium">Lead</TableHead>
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="w-32 font-medium">Status</TableHead>
@@ -238,11 +238,11 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               }
 
               return (
-                <TableRow key={booking.id} className="glass-row-hover transition-colors duration-100 border-b" style={{ borderColor: 'var(--glass-border-color)' }}>
-                  <TableCell className="font-medium text-foreground">
+                <TableRow key={booking.id} className="hover:bg-muted/30 transition-colors duration-100 border-b border-border">
+                  <TableCell className="text-sm font-medium text-foreground">
                     {booking.leadName}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  <TableCell className="text-sm text-muted-foreground">
                     {format(parseISO(booking.scheduled_at), 'EEE d MMM yyyy, h:mm a')}
                   </TableCell>
                   <TableCell>
@@ -253,7 +253,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                       <p className="text-xs text-muted-foreground italic mt-0.5">&quot;{dispute.admin_notes}&quot;</p>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm">
                     {isCompleted && booking.job_value != null
                       ? <span className="text-foreground font-medium">${(booking.job_value / 100).toFixed(2)}</span>
                       : <span className="text-muted-foreground/40">—</span>
@@ -280,7 +280,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                         <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent side="bottom" align="end" className="min-w-[140px] w-auto">
                           <DropdownMenuItem onClick={() => handleOpenComplete(booking.id)}>
                             Mark complete
                           </DropdownMenuItem>
@@ -295,7 +295,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                         <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors">
                           <Pencil className="w-3.5 h-3.5" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent side="bottom" align="end" className="min-w-[140px] w-auto">
                           <DropdownMenuItem onClick={() => handleOpenComplete(booking.id)}>
                             Edit
                           </DropdownMenuItem>
