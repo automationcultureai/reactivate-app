@@ -5,28 +5,23 @@ import { useMotionValue, useSpring, motion } from 'framer-motion'
 import { Info, Users, CalendarCheck, MailOpen, MousePointerClick, TrendingUp, CheckCircle2, DollarSign, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// SVG filter for the glass distortion/refraction effect
+// SVG filter applied as backdropFilter — distorts what's visible *through* the card
 function GlassFilter() {
   return (
-    <svg style={{ display: 'none' }}>
-      <filter
-        id="glass-distortion"
-        x="0%" y="0%" width="100%" height="100%"
-        filterUnits="objectBoundingBox"
-      >
-        <feTurbulence type="fractalNoise" baseFrequency="0.001 0.005" numOctaves="1" seed="17" result="turbulence" />
-        <feComponentTransfer in="turbulence" result="mapped">
-          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
-          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
-          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
-        </feComponentTransfer>
-        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
-        <feSpecularLighting in="softMap" surfaceScale="5" specularConstant="1" specularExponent="100" lightingColor="white" result="specLight">
-          <fePointLight x="-200" y="-200" z="300" />
-        </feSpecularLighting>
-        <feComposite in="specLight" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litImage" />
-        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="200" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
+    <svg className="hidden" aria-hidden>
+      <defs>
+        <filter
+          id="stat-glass"
+          x="0%" y="0%" width="100%" height="100%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feTurbulence type="fractalNoise" baseFrequency="0.05 0.05" numOctaves="1" seed="1" result="turbulence" />
+          <feGaussianBlur in="turbulence" stdDeviation="2" result="blurredNoise" />
+          <feDisplacementMap in="SourceGraphic" in2="blurredNoise" scale="70" xChannelSelector="R" yChannelSelector="B" result="displaced" />
+          <feGaussianBlur in="displaced" stdDeviation="4" result="finalBlur" />
+          <feComposite in="finalBlur" in2="finalBlur" operator="over" />
+        </filter>
+      </defs>
     </svg>
   )
 }
@@ -61,6 +56,14 @@ const ACCENT_CLASSES: Record<AccentColor, { strip: string; icon: string; iconBg:
   emerald: { strip: 'border-t-emerald-400/60', icon: 'text-emerald-400', iconBg: 'bg-emerald-500/10 border-emerald-400/20' },
 }
 
+// Light-mode glass rim shadow (dark inset edges on light bg)
+const SHADOW_LIGHT =
+  '0 0 6px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.08), inset 3px 3px 0.5px -3px rgba(0,0,0,0.9), inset -3px -3px 0.5px -3px rgba(0,0,0,0.85), inset 1px 1px 1px -0.5px rgba(0,0,0,0.6), inset -1px -1px 1px -0.5px rgba(0,0,0,0.6), inset 0 0 6px 6px rgba(0,0,0,0.12), inset 0 0 2px 2px rgba(0,0,0,0.06), 0 0 12px rgba(255,255,255,0.15)'
+
+// Dark-mode glass rim shadow (white inset edges on dark bg)
+const SHADOW_DARK =
+  '0 0 8px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.08), inset 3px 3px 0.5px -3.5px rgba(255,255,255,0.09), inset -3px -3px 0.5px -3.5px rgba(255,255,255,0.85), inset 1px 1px 1px -0.5px rgba(255,255,255,0.6), inset -1px -1px 1px -0.5px rgba(255,255,255,0.6), inset 0 0 6px 6px rgba(255,255,255,0.12), inset 0 0 2px 2px rgba(255,255,255,0.06), 0 0 12px rgba(0,0,0,0.15)'
+
 const cardVariants = {
   hidden: { opacity: 0, y: 16 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.4, 0.25, 1] as [number, number, number, number] } },
@@ -90,57 +93,42 @@ function StatCard({
       variants={cardVariants}
       whileHover={{ scale: 1.015 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className={cn('relative rounded-xl border-t-2 overflow-hidden cursor-default', strip)}
+      style={{ boxShadow: SHADOW_LIGHT }}
     >
-      {/* Outer wrapper: accent top strip + shadow */}
-      <div
-        className={cn('relative rounded-xl border-t-2 overflow-hidden', strip)}
-        style={{
-          boxShadow: '0 6px 6px rgba(0,0,0,0.25), 0 0 20px rgba(0,0,0,0.15)',
-          transitionTimingFunction: 'cubic-bezier(0.175, 0.885, 0.32, 2.2)',
-        }}
-      >
-        {/* Layer 1: blur + SVG distortion */}
-        <div
-          className="absolute inset-0 z-0 rounded-xl overflow-hidden"
-          style={{
-            backdropFilter: 'blur(16px)',
-            filter: 'url(#glass-distortion)',
-            isolation: 'isolate',
-          }}
-        />
-        {/* Layer 2: white/translucent tint — lighter on light mode, more visible on dark */}
-        <div
-          className="absolute inset-0 z-10 rounded-xl bg-white/25 dark:bg-white/[0.14] midnight:bg-white/[0.16]"
-        />
-        {/* Layer 3: inset highlight edges */}
-        <div
-          className="absolute inset-0 z-20 rounded-xl"
-          style={{
-            boxShadow: 'inset 2px 2px 2px 0 rgba(255,255,255,0.5), inset -1px -1px 1px 1px rgba(255,255,255,0.25)',
-          }}
-        />
+      {/* Apply dark shadow via a sibling — can't conditionally swap inline styles per theme easily */}
+      <style>{`.dark .stat-card-shadow { box-shadow: ${SHADOW_DARK} !important; } .midnight .stat-card-shadow { box-shadow: ${SHADOW_DARK} !important; }`}</style>
+      <div className="stat-card-shadow absolute inset-0 rounded-xl pointer-events-none" />
 
-        {/* Content */}
-        <div className="relative z-30 p-4">
-          <div className="flex items-start justify-between gap-1 mb-3">
-            <p className="text-xs font-medium text-muted-foreground">{label}</p>
-            <div className="flex items-center gap-1.5">
-              <div className={cn('flex items-center justify-center w-6 h-6 rounded-md border', iconBg)}>
-                <span className={cn('w-3.5 h-3.5 [&>svg]:w-3.5 [&>svg]:h-3.5', iconClass)}>{icon}</span>
-              </div>
-              <div className="relative group">
-                <Info className="w-3 h-3 text-muted-foreground/30 cursor-help" />
-                <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
-                  {tooltip}
-                </div>
+      {/* Backdrop glass distortion layer — distorts the background through the card */}
+      <div
+        className="absolute inset-0 z-0 overflow-hidden rounded-xl"
+        style={{ backdropFilter: 'url("#stat-glass") blur(12px)' }}
+      />
+
+      {/* White tint — lighter on light, more subtle on dark */}
+      <div className="absolute inset-0 z-10 rounded-xl bg-white/30 dark:bg-white/[0.06] midnight:bg-white/[0.08]" />
+
+      {/* Content */}
+      <div className="relative z-20 p-4">
+        <div className="flex items-start justify-between gap-1 mb-3">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <div className="flex items-center gap-1.5">
+            <div className={cn('flex items-center justify-center w-6 h-6 rounded-md border', iconBg)}>
+              <span className={cn('w-3.5 h-3.5 [&>svg]:w-3.5 [&>svg]:h-3.5', iconClass)}>{icon}</span>
+            </div>
+            <div className="relative group">
+              <Info className="w-3 h-3 text-muted-foreground/30 cursor-help" />
+              <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
+                {tooltip}
               </div>
             </div>
           </div>
-          <p className="text-2xl font-bold text-foreground leading-none">
-            {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
-          </p>
-          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
         </div>
+        <p className="text-2xl font-bold text-foreground leading-none">
+          {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
+        </p>
+        {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
       </div>
     </motion.div>
   )
