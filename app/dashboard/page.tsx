@@ -242,7 +242,7 @@ export default async function DashboardPage() {
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+            <h2 className="text-sm font-semibold text-foreground">
               Bookings
             </h2>
             {bookings.length > 0 && (
@@ -261,7 +261,7 @@ export default async function DashboardPage() {
         <div className="space-y-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-sm font-semibold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+              <h2 className="text-sm font-semibold text-foreground">
                 Leads
               </h2>
               {leads && leads.length > 0 && (
