@@ -103,20 +103,20 @@ function StatCard({
         <div
           className="absolute inset-0 z-0 rounded-xl overflow-hidden"
           style={{
-            backdropFilter: 'blur(3px)',
+            backdropFilter: 'blur(16px)',
             filter: 'url(#glass-distortion)',
             isolation: 'isolate',
           }}
         />
-        {/* Layer 2: white/translucent tint — lighter on light mode, subtle on dark */}
+        {/* Layer 2: white/translucent tint — lighter on light mode, more visible on dark */}
         <div
-          className="absolute inset-0 z-10 rounded-xl bg-white/25 dark:bg-white/[0.07] midnight:bg-white/[0.09]"
+          className="absolute inset-0 z-10 rounded-xl bg-white/25 dark:bg-white/[0.14] midnight:bg-white/[0.16]"
         />
         {/* Layer 3: inset highlight edges */}
         <div
           className="absolute inset-0 z-20 rounded-xl"
           style={{
-            boxShadow: 'inset 2px 2px 1px 0 rgba(255,255,255,0.35), inset -1px -1px 1px 1px rgba(255,255,255,0.15)',
+            boxShadow: 'inset 2px 2px 2px 0 rgba(255,255,255,0.5), inset -1px -1px 1px 1px rgba(255,255,255,0.25)',
           }}
         />
 
