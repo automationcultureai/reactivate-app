@@ -5,6 +5,32 @@ import { useMotionValue, useSpring, motion } from 'framer-motion'
 import { Info, Users, CalendarCheck, MailOpen, MousePointerClick, TrendingUp, CheckCircle2, DollarSign, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+// SVG filter for the glass distortion/refraction effect
+function GlassFilter() {
+  return (
+    <svg style={{ display: 'none' }}>
+      <filter
+        id="glass-distortion"
+        x="0%" y="0%" width="100%" height="100%"
+        filterUnits="objectBoundingBox"
+      >
+        <feTurbulence type="fractalNoise" baseFrequency="0.001 0.005" numOctaves="1" seed="17" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+          <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+          <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+          <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+        <feSpecularLighting in="softMap" surfaceScale="5" specularConstant="1" specularExponent="100" lightingColor="white" result="specLight">
+          <fePointLight x="-200" y="-200" z="300" />
+        </feSpecularLighting>
+        <feComposite in="specLight" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litImage" />
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="200" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+  )
+}
+
 // Animated count-up for integer values
 function CountUp({ target }: { target: number }) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -62,29 +88,60 @@ function StatCard({
   return (
     <motion.div
       variants={cardVariants}
-      whileHover={{ scale: 1.015, rotateX: 0.5, rotateY: 0.5 }}
+      whileHover={{ scale: 1.015 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className={cn('glass-card rounded-xl p-4 border-t-2', strip)}
-      style={{ transformStyle: 'preserve-3d' }}
     >
-      <div className="flex items-start justify-between gap-1 mb-3">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <div className="flex items-center gap-1.5">
-          <div className={cn('flex items-center justify-center w-6 h-6 rounded-md border', iconBg)}>
-            <span className={cn('w-3.5 h-3.5 [&>svg]:w-3.5 [&>svg]:h-3.5', iconClass)}>{icon}</span>
-          </div>
-          <div className="relative group">
-            <Info className="w-3 h-3 text-muted-foreground/30 cursor-help" />
-            <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
-              {tooltip}
+      {/* Outer wrapper: accent top strip + shadow */}
+      <div
+        className={cn('relative rounded-xl border-t-2 overflow-hidden', strip)}
+        style={{
+          boxShadow: '0 6px 6px rgba(0,0,0,0.25), 0 0 20px rgba(0,0,0,0.15)',
+          transitionTimingFunction: 'cubic-bezier(0.175, 0.885, 0.32, 2.2)',
+        }}
+      >
+        {/* Layer 1: blur + SVG distortion */}
+        <div
+          className="absolute inset-0 z-0 rounded-xl overflow-hidden"
+          style={{
+            backdropFilter: 'blur(3px)',
+            filter: 'url(#glass-distortion)',
+            isolation: 'isolate',
+          }}
+        />
+        {/* Layer 2: white/translucent tint — lighter on light mode, subtle on dark */}
+        <div
+          className="absolute inset-0 z-10 rounded-xl bg-white/25 dark:bg-white/[0.07] midnight:bg-white/[0.09]"
+        />
+        {/* Layer 3: inset highlight edges */}
+        <div
+          className="absolute inset-0 z-20 rounded-xl"
+          style={{
+            boxShadow: 'inset 2px 2px 1px 0 rgba(255,255,255,0.35), inset -1px -1px 1px 1px rgba(255,255,255,0.15)',
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative z-30 p-4">
+          <div className="flex items-start justify-between gap-1 mb-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div className="flex items-center gap-1.5">
+              <div className={cn('flex items-center justify-center w-6 h-6 rounded-md border', iconBg)}>
+                <span className={cn('w-3.5 h-3.5 [&>svg]:w-3.5 [&>svg]:h-3.5', iconClass)}>{icon}</span>
+              </div>
+              <div className="relative group">
+                <Info className="w-3 h-3 text-muted-foreground/30 cursor-help" />
+                <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
+                  {tooltip}
+                </div>
+              </div>
             </div>
           </div>
+          <p className="text-2xl font-bold text-foreground leading-none">
+            {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
+          </p>
+          {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
         </div>
       </div>
-      <p className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/50 bg-clip-text text-transparent leading-none">
-        {numericValue !== undefined ? <CountUp target={numericValue} /> : value}
-      </p>
-      {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
     </motion.div>
   )
 }
@@ -101,7 +158,7 @@ interface DashboardStatsProps {
   openedCount: number
   clickedCount: number
   completedCount: number
-  totalSpend: number   // in cents — sum of commission_owed for completed bookings
+  totalSpend: number
   smsSent: number
   smsOptedOut: number
   uniqueSmsLeads: number
@@ -126,83 +183,85 @@ export function DashboardStats({
   uniqueSmsLeads,
 }: DashboardStatsProps) {
   return (
-    <motion.div
-      className="grid grid-cols-2 md:grid-cols-3 gap-4"
-      style={{ perspective: 1000 }}
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <StatCard
-        label="Total leads"
-        value={String(totalLeads)}
-        numericValue={totalLeads}
-        sub="across all campaigns"
-        tooltip="Total number of leads uploaded across all campaigns for this client."
-        icon={<Users />}
-        accent="blue"
-      />
-      <StatCard
-        label="Leads booked"
-        value={String(bookedCount)}
-        numericValue={bookedCount}
-        sub={`${completedCount} completed`}
-        tooltip="Number of leads who have booked or completed an appointment."
-        icon={<CalendarCheck />}
-        accent="green"
-      />
-      <StatCard
-        label="Email open rate"
-        value={pct(openedCount, emailsSent)}
-        sub={`${openedCount} of ${emailsSent} emails`}
-        tooltip="Percentage of sent emails that were opened. Calculated as: emails opened ÷ emails sent. Note: Apple Mail Privacy Protection may inflate this figure."
-        icon={<MailOpen />}
-        accent="violet"
-      />
-      <StatCard
-        label="Click through rate"
-        value={pct(clickedCount, emailsSent)}
-        sub={`${clickedCount} leads clicked`}
-        tooltip="Percentage of emailed leads who clicked the booking link. Calculated as: leads who clicked ÷ leads emailed."
-        icon={<MousePointerClick />}
-        accent="amber"
-      />
-      <StatCard
-        label="Booking rate"
-        value={pct(bookedCount, totalLeads)}
-        sub={`${bookedCount} of ${totalLeads} leads`}
-        tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
-        icon={<TrendingUp />}
-        accent="emerald"
-      />
-      <StatCard
-        label="Jobs completed"
-        value={String(completedCount)}
-        numericValue={completedCount}
-        sub={`${pct(completedCount, bookedCount)} completion rate`}
-        tooltip="Number of booked appointments that were completed."
-        icon={<CheckCircle2 />}
-        accent="green"
-      />
-      <StatCard
-        label="Total spend"
-        value={`$${(totalSpend / 100).toFixed(2)}`}
-        sub="Commission charged for completed jobs"
-        tooltip="Total commission charged by the agency for all completed jobs."
-        icon={<DollarSign />}
-        accent="rose"
-      />
-      {smsSent > 0 && (
+    <>
+      <GlassFilter />
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-3 gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         <StatCard
-          label="Leads reached by SMS"
-          value={String(uniqueSmsLeads)}
-          numericValue={uniqueSmsLeads}
-          sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
-          tooltip="The number of leads who were contacted by SMS during this campaign."
-          icon={<MessageSquare />}
+          label="Total leads"
+          value={String(totalLeads)}
+          numericValue={totalLeads}
+          sub="across all campaigns"
+          tooltip="Total number of leads uploaded across all campaigns for this client."
+          icon={<Users />}
           accent="blue"
         />
-      )}
-    </motion.div>
+        <StatCard
+          label="Leads booked"
+          value={String(bookedCount)}
+          numericValue={bookedCount}
+          sub={`${completedCount} completed`}
+          tooltip="Number of leads who have booked or completed an appointment."
+          icon={<CalendarCheck />}
+          accent="green"
+        />
+        <StatCard
+          label="Email open rate"
+          value={pct(openedCount, emailsSent)}
+          sub={`${openedCount} of ${emailsSent} emails`}
+          tooltip="Percentage of sent emails that were opened. Calculated as: emails opened ÷ emails sent. Note: Apple Mail Privacy Protection may inflate this figure."
+          icon={<MailOpen />}
+          accent="violet"
+        />
+        <StatCard
+          label="Click through rate"
+          value={pct(clickedCount, emailsSent)}
+          sub={`${clickedCount} leads clicked`}
+          tooltip="Percentage of emailed leads who clicked the booking link. Calculated as: leads who clicked ÷ leads emailed."
+          icon={<MousePointerClick />}
+          accent="amber"
+        />
+        <StatCard
+          label="Booking rate"
+          value={pct(bookedCount, totalLeads)}
+          sub={`${bookedCount} of ${totalLeads} leads`}
+          tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
+          icon={<TrendingUp />}
+          accent="emerald"
+        />
+        <StatCard
+          label="Jobs completed"
+          value={String(completedCount)}
+          numericValue={completedCount}
+          sub={`${pct(completedCount, bookedCount)} completion rate`}
+          tooltip="Number of booked appointments that were completed."
+          icon={<CheckCircle2 />}
+          accent="green"
+        />
+        <StatCard
+          label="Total spend"
+          value={`$${(totalSpend / 100).toFixed(2)}`}
+          sub="Commission charged for completed jobs"
+          tooltip="Total commission charged by the agency for all completed jobs."
+          icon={<DollarSign />}
+          accent="rose"
+        />
+        {smsSent > 0 && (
+          <StatCard
+            label="Leads reached by SMS"
+            value={String(uniqueSmsLeads)}
+            numericValue={uniqueSmsLeads}
+            sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
+            tooltip="The number of leads who were contacted by SMS during this campaign."
+            icon={<MessageSquare />}
+            accent="blue"
+          />
+        )}
+      </motion.div>
+    </>
   )
 }
