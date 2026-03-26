@@ -214,12 +214,7 @@ export default async function DashboardPage() {
       <DashboardNav clientName={clientDisplayName} />
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
-        <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {clientDisplayName} · {totalLeads} lead{totalLeads !== 1 ? 's' : ''} across all campaigns
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
 
         <DashboardStats
           totalLeads={totalLeads}
@@ -234,11 +229,6 @@ export default async function DashboardPage() {
           uniqueSmsLeads={uniqueSmsLeads}
           smsSeqCounts={smsSeqCounts}
         />
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground/50">Overview</span>
-          <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
-        </div>
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">

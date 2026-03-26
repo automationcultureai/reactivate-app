@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useMotionValue, useSpring, motion } from 'framer-motion'
-import { Info, Users, CalendarCheck, MailOpen, MousePointerClick, TrendingUp, CheckCircle2, DollarSign, MessageSquare } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Info } from 'lucide-react'
 
-// SVG filter applied as backdropFilter — distorts what's visible *through* the card
+// SVG filter applied as backdropFilter — distorts what's visible through the card
 function GlassFilter() {
   return (
     <svg className="hidden" aria-hidden>
@@ -45,22 +44,11 @@ function CountUp({ target }: { target: number }) {
   return <span ref={ref}>0</span>
 }
 
-type AccentColor = 'blue' | 'green' | 'amber' | 'violet' | 'rose' | 'emerald'
-
-const ACCENT_CLASSES: Record<AccentColor, { strip: string; icon: string; iconBg: string }> = {
-  blue:    { strip: 'border-t-blue-400/60',    icon: 'text-blue-400',    iconBg: 'bg-blue-500/10 border-blue-400/20' },
-  green:   { strip: 'border-t-green-400/60',   icon: 'text-green-400',   iconBg: 'bg-green-500/10 border-green-400/20' },
-  amber:   { strip: 'border-t-amber-400/60',   icon: 'text-amber-400',   iconBg: 'bg-amber-500/10 border-amber-400/20' },
-  violet:  { strip: 'border-t-violet-400/60',  icon: 'text-violet-400',  iconBg: 'bg-violet-500/10 border-violet-400/20' },
-  rose:    { strip: 'border-t-rose-400/60',    icon: 'text-rose-400',    iconBg: 'bg-rose-500/10 border-rose-400/20' },
-  emerald: { strip: 'border-t-emerald-400/60', icon: 'text-emerald-400', iconBg: 'bg-emerald-500/10 border-emerald-400/20' },
-}
-
-// Light-mode glass rim shadow (dark inset edges on light bg)
+// Light-mode glass rim shadow
 const SHADOW_LIGHT =
   '0 0 6px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.08), inset 3px 3px 0.5px -3px rgba(0,0,0,0.9), inset -3px -3px 0.5px -3px rgba(0,0,0,0.85), inset 1px 1px 1px -0.5px rgba(0,0,0,0.6), inset -1px -1px 1px -0.5px rgba(0,0,0,0.6), inset 0 0 6px 6px rgba(0,0,0,0.12), inset 0 0 2px 2px rgba(0,0,0,0.06), 0 0 12px rgba(255,255,255,0.15)'
 
-// Dark-mode glass rim shadow (white inset edges on dark bg)
+// Dark-mode glass rim shadow
 const SHADOW_DARK =
   '0 0 8px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.08), inset 3px 3px 0.5px -3.5px rgba(255,255,255,0.09), inset -3px -3px 0.5px -3.5px rgba(255,255,255,0.85), inset 1px 1px 1px -0.5px rgba(255,255,255,0.6), inset -1px -1px 1px -0.5px rgba(255,255,255,0.6), inset 0 0 6px 6px rgba(255,255,255,0.12), inset 0 0 2px 2px rgba(255,255,255,0.06), 0 0 12px rgba(0,0,0,0.15)'
 
@@ -75,53 +63,43 @@ function StatCard({
   numericValue,
   sub,
   tooltip,
-  icon,
-  accent = 'blue',
 }: {
   label: string
-  value: string
+  value: string | ReactNode
   numericValue?: number
   sub?: string
   tooltip: string
-  icon: ReactNode
-  accent?: AccentColor
 }) {
-  const { strip, iconBg, icon: iconClass } = ACCENT_CLASSES[accent]
-
   return (
     <motion.div
       variants={cardVariants}
       whileHover={{ scale: 1.015 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className={cn('relative rounded-xl border-t-2 overflow-hidden cursor-default', strip)}
+      className="relative rounded-xl cursor-default"
       style={{ boxShadow: SHADOW_LIGHT }}
     >
-      {/* Apply dark shadow via a sibling — can't conditionally swap inline styles per theme easily */}
-      <style>{`.dark .stat-card-shadow { box-shadow: ${SHADOW_DARK} !important; } .midnight .stat-card-shadow { box-shadow: ${SHADOW_DARK} !important; }`}</style>
-      <div className="stat-card-shadow absolute inset-0 rounded-xl pointer-events-none" />
+      {/* Dark/midnight shadow override via CSS class */}
+      <style>{`.dark .stat-rim,.midnight .stat-rim{box-shadow:${SHADOW_DARK}!important}`}</style>
+      <div className="stat-rim absolute inset-0 rounded-xl pointer-events-none" />
 
-      {/* Backdrop glass distortion layer — distorts the background through the card */}
+      {/* Backdrop glass distortion */}
       <div
         className="absolute inset-0 z-0 overflow-hidden rounded-xl"
         style={{ backdropFilter: 'url("#stat-glass") blur(12px)' }}
       />
 
-      {/* White tint — lighter on light, more subtle on dark */}
+      {/* White tint */}
       <div className="absolute inset-0 z-10 rounded-xl bg-white/30 dark:bg-white/[0.06] midnight:bg-white/[0.08]" />
 
-      {/* Content */}
+      {/* Content — overflow:visible so tooltip can escape */}
       <div className="relative z-20 p-4">
-        <div className="flex items-start justify-between gap-1 mb-3">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <div className="flex items-center gap-1.5">
-            <div className={cn('flex items-center justify-center w-6 h-6 rounded-md border', iconBg)}>
-              <span className={cn('w-3.5 h-3.5 [&>svg]:w-3.5 [&>svg]:h-3.5', iconClass)}>{icon}</span>
-            </div>
-            <div className="relative group">
-              <Info className="w-3 h-3 text-muted-foreground/30 cursor-help" />
-              <div className="absolute right-0 bottom-full mb-1.5 z-50 hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-md pointer-events-none">
-                {tooltip}
-              </div>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <p className="text-sm font-medium text-muted-foreground leading-tight">{label}</p>
+          <div className="relative group flex-shrink-0">
+            <Info className="w-3.5 h-3.5 text-muted-foreground/30 cursor-help mt-0.5" />
+            {/* Tooltip — positioned above, no clip */}
+            <div className="absolute right-0 bottom-full mb-2 z-[100] hidden group-hover:block w-64 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground shadow-lg pointer-events-none">
+              {tooltip}
             </div>
           </div>
         </div>
@@ -179,14 +157,13 @@ export function DashboardStats({
         initial="hidden"
         animate="visible"
       >
+        {/* Row 1: Core pipeline */}
         <StatCard
           label="Total leads"
           value={String(totalLeads)}
           numericValue={totalLeads}
           sub="across all campaigns"
           tooltip="Total number of leads uploaded across all campaigns for this client."
-          icon={<Users />}
-          accent="blue"
         />
         <StatCard
           label="Leads booked"
@@ -194,32 +171,6 @@ export function DashboardStats({
           numericValue={bookedCount}
           sub={`${completedCount} completed`}
           tooltip="Number of leads who have booked or completed an appointment."
-          icon={<CalendarCheck />}
-          accent="green"
-        />
-        <StatCard
-          label="Email open rate"
-          value={pct(openedCount, emailsSent)}
-          sub={`${openedCount} of ${emailsSent} emails`}
-          tooltip="Percentage of sent emails that were opened. Calculated as: emails opened ÷ emails sent. Note: Apple Mail Privacy Protection may inflate this figure."
-          icon={<MailOpen />}
-          accent="violet"
-        />
-        <StatCard
-          label="Click through rate"
-          value={pct(clickedCount, emailsSent)}
-          sub={`${clickedCount} leads clicked`}
-          tooltip="Percentage of emailed leads who clicked the booking link. Calculated as: leads who clicked ÷ leads emailed."
-          icon={<MousePointerClick />}
-          accent="amber"
-        />
-        <StatCard
-          label="Booking rate"
-          value={pct(bookedCount, totalLeads)}
-          sub={`${bookedCount} of ${totalLeads} leads`}
-          tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
-          icon={<TrendingUp />}
-          accent="emerald"
         />
         <StatCard
           label="Jobs completed"
@@ -227,16 +178,34 @@ export function DashboardStats({
           numericValue={completedCount}
           sub={`${pct(completedCount, bookedCount)} completion rate`}
           tooltip="Number of booked appointments that were completed."
-          icon={<CheckCircle2 />}
-          accent="green"
         />
+
+        {/* Row 2: Email engagement */}
+        <StatCard
+          label="Email open rate"
+          value={pct(openedCount, emailsSent)}
+          sub={`${openedCount} of ${emailsSent} emails`}
+          tooltip="Percentage of sent emails that were opened. Calculated as: emails opened ÷ emails sent. Note: Apple Mail Privacy Protection may inflate this figure."
+        />
+        <StatCard
+          label="Click through rate"
+          value={pct(clickedCount, emailsSent)}
+          sub={`${clickedCount} leads clicked`}
+          tooltip="Percentage of emailed leads who clicked the booking link. Calculated as: leads who clicked ÷ leads emailed."
+        />
+        <StatCard
+          label="Booking rate"
+          value={pct(bookedCount, totalLeads)}
+          sub={`${bookedCount} of ${totalLeads} leads`}
+          tooltip="Percentage of all leads who have booked an appointment. Calculated as: leads booked ÷ total leads."
+        />
+
+        {/* Row 3: Finance + optional SMS */}
         <StatCard
           label="Total spend"
           value={`$${(totalSpend / 100).toFixed(2)}`}
           sub="Commission charged for completed jobs"
           tooltip="Total commission charged by the agency for all completed jobs."
-          icon={<DollarSign />}
-          accent="rose"
         />
         {smsSent > 0 && (
           <StatCard
@@ -245,8 +214,6 @@ export function DashboardStats({
             numericValue={uniqueSmsLeads}
             sub={smsOptedOut > 0 ? `${pct(smsOptedOut, uniqueSmsLeads)} opt-out rate` : 'no opt-outs'}
             tooltip="The number of leads who were contacted by SMS during this campaign."
-            icon={<MessageSquare />}
-            accent="blue"
           />
         )}
       </motion.div>
