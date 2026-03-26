@@ -7,7 +7,6 @@ import { DashboardNav } from '@/components/dashboard/DashboardNav'
 import { DashboardStats } from '@/components/dashboard/DashboardStats'
 import { DashboardBookings } from '@/components/dashboard/DashboardBookings'
 import { DashboardLeads } from '@/components/dashboard/DashboardLeads'
-import { Separator } from '@/components/ui/separator'
 import type { Booking } from '@/lib/supabase'
 
 export default async function DashboardPage() {
@@ -216,7 +215,7 @@ export default async function DashboardPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {clientDisplayName} · {totalLeads} lead{totalLeads !== 1 ? 's' : ''} across all campaigns
           </p>
@@ -236,17 +235,21 @@ export default async function DashboardPage() {
           smsSeqCounts={smsSeqCounts}
         />
 
-        <Separator />
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground/50">Overview</span>
+          <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
+        </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">
-            Bookings
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+              Bookings
+            </h2>
             {bookings.length > 0 && (
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                ({bookings.length})
-              </span>
+              <span className="text-xs text-muted-foreground/60">({bookings.length})</span>
             )}
-          </h2>
+            <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
+          </div>
           <DashboardBookings
             bookings={bookings}
             disputesByBooking={disputesByBooking}
@@ -255,19 +258,18 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <Separator />
-
         <div className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Leads
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-sm font-semibold bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+                Leads
+              </h2>
               {leads && leads.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground ml-2">
-                  ({leads.length})
-                </span>
+                <span className="text-xs text-muted-foreground/60">({leads.length})</span>
               )}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
+              <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
+            </div>
+            <p className="text-xs text-muted-foreground">
               Contact details are not displayed here for privacy.
             </p>
           </div>

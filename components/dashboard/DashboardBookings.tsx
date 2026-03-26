@@ -34,10 +34,10 @@ import { AlertCircle, Loader2, Calendar, Paperclip, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
-  booked: { label: 'Upcoming', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  completed: { label: 'Completed', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  cancelled: { label: 'Cancelled', classes: 'bg-muted text-muted-foreground' },
-  disputed: { label: 'Disputed', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
+  booked:    { label: 'Upcoming',  classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  completed: { label: 'Completed', classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  cancelled: { label: 'Cancelled', classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
+  disputed:  { label: 'Disputed',  classes: 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
 }
 
 interface DashboardBookingsProps {
@@ -189,7 +189,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   if (bookings.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
+      <div className="flex flex-col items-center justify-center py-10 glass-panel rounded-xl border-dashed text-center">
         <Calendar className="w-7 h-7 text-muted-foreground/30 mb-2" />
         <p className="text-sm text-muted-foreground">No bookings yet</p>
       </div>
@@ -198,10 +198,10 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
 
   return (
     <>
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="glass-panel rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/30">
+            <TableRow className="glass-row-hover" style={{ background: 'var(--glass-header-bg)', borderBottom: '1px solid var(--glass-border-color)' }}>
               <TableHead className="font-medium">Lead</TableHead>
               <TableHead className="font-medium">Date &amp; time</TableHead>
               <TableHead className="w-32 font-medium">Status</TableHead>
@@ -223,22 +223,22 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
               if (booking.status === 'disputed' || wasJustRaised) {
                 if (dispute?.status === 'resolved') {
                   displayStatus = 'Dispute upheld'
-                  displayClass = 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  displayClass = 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]'
                 } else if (dispute?.status === 'rejected') {
                   displayStatus = 'Dispute rejected'
-                  displayClass = 'bg-destructive/10 text-destructive'
+                  displayClass = 'bg-destructive/10 border border-destructive/25 text-destructive'
                 } else {
                   displayStatus = 'Disputed'
-                  displayClass = 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  displayClass = 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]'
                 }
               } else {
-                const badge = STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-muted text-muted-foreground' }
+                const badge = STATUS_BADGE[booking.status] ?? { label: booking.status, classes: 'bg-white/5 border border-white/10 text-muted-foreground' }
                 displayStatus = badge.label
                 displayClass = badge.classes
               }
 
               return (
-                <TableRow key={booking.id} className="hover:bg-muted/10">
+                <TableRow key={booking.id} className="glass-row-hover transition-colors duration-100 border-b" style={{ borderColor: 'var(--glass-border-color)' }}>
                   <TableCell className="font-medium text-foreground">
                     {booking.leadName}
                   </TableCell>
@@ -246,7 +246,7 @@ export function DashboardBookings({ bookings: initialBookings, disputesByBooking
                     {format(parseISO(booking.scheduled_at), 'EEE d MMM yyyy, h:mm a')}
                   </TableCell>
                   <TableCell>
-                    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', displayClass)}>
+                    <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', displayClass)}>
                       {displayStatus}
                     </span>
                     {(dispute?.status === 'resolved' || dispute?.status === 'rejected') && dispute?.admin_notes && (

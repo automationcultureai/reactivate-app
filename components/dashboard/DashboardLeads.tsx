@@ -12,15 +12,15 @@ import { cn } from '@/lib/utils'
 import { Users } from 'lucide-react'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
-  pending: { label: 'Contact made', classes: 'bg-muted text-muted-foreground' },
-  emailed: { label: 'Contacted', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  sms_sent: { label: 'Contacted', classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  clicked: { label: 'Interested', classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-  booked: { label: 'Booked', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  completed: { label: 'Completed', classes: 'bg-green-500/10 text-green-600 dark:text-green-400' },
-  unsubscribed: { label: 'Opted out', classes: 'bg-muted text-muted-foreground' },
-  cancelled: { label: 'Cancelled', classes: 'bg-muted text-muted-foreground' },
-  send_failed: { label: 'Send failed', classes: 'bg-destructive/10 text-destructive' },
+  pending:      { label: 'Contact made', classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
+  emailed:      { label: 'Contacted',    classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  sms_sent:     { label: 'Contacted',    classes: 'bg-blue-500/10  border border-blue-400/25  text-blue-400  shadow-[0_0_8px_rgba(59,130,246,0.12)]' },
+  clicked:      { label: 'Interested',   classes: 'bg-amber-500/10 border border-amber-400/25 text-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.12)]' },
+  booked:       { label: 'Booked',       classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  completed:    { label: 'Completed',    classes: 'bg-green-500/10 border border-green-400/25 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.12)]' },
+  unsubscribed: { label: 'Opted out',    classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
+  cancelled:    { label: 'Cancelled',    classes: 'bg-white/5      border border-white/10     text-muted-foreground' },
+  send_failed:  { label: 'Send failed',  classes: 'bg-destructive/10 border border-destructive/25 text-destructive' },
 }
 
 const EVENT_LABELS: Record<string, string> = {
@@ -117,7 +117,7 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
 
   if (totalLeads === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-center">
+      <div className="flex flex-col items-center justify-center py-10 glass-panel rounded-xl border-dashed text-center">
         <Users className="w-7 h-7 text-muted-foreground/30 mb-2" />
         <p className="text-sm text-muted-foreground">No leads yet</p>
       </div>
@@ -129,10 +129,10 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
   )
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="glass-panel rounded-xl overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-muted/30">
+          <TableRow className="glass-row-hover" style={{ background: 'var(--glass-header-bg)', borderBottom: '1px solid var(--glass-border-color)' }}>
             <TableHead className="font-medium">Name</TableHead>
             <TableHead className="font-medium">Campaign</TableHead>
             <TableHead className="font-medium">Status</TableHead>
@@ -144,13 +144,13 @@ export function DashboardLeads({ leadsByCampaign, lastEventByLead, latestEmailBy
           {allLeads.map((lead) => {
             const badge = STATUS_BADGE[lead.status] ?? { label: lead.status, classes: 'bg-muted text-muted-foreground' }
             return (
-              <TableRow key={lead.id} className="hover:bg-muted/10">
+              <TableRow key={lead.id} className="glass-row-hover transition-colors duration-100 border-b" style={{ borderColor: 'var(--glass-border-color)' }}>
                 <TableCell className="font-medium text-foreground">{lead.name}</TableCell>
                 <TableCell>
                   <span className="text-xs text-muted-foreground">{lead.campaignName}</span>
                 </TableCell>
                 <TableCell>
-                  <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
+                  <span className={cn('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', badge.classes)}>
                     {badge.label}
                   </span>
                 </TableCell>

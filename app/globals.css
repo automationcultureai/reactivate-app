@@ -78,8 +78,27 @@
     --sidebar-ring: oklch(0.556 0 0);
   }
 
+  /* ── Glass surface variables ── */
+  :root {
+    --glass-bg: rgba(0, 0, 0, 0.03);
+    --glass-border-color: rgba(0, 0, 0, 0.07);
+    --glass-header-bg: rgba(0, 0, 0, 0.03);
+    --glass-row-hover: rgba(0, 0, 0, 0.02);
+  }
+
+  .dark {
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border-color: rgba(255, 255, 255, 0.07);
+    --glass-header-bg: rgba(255, 255, 255, 0.03);
+    --glass-row-hover: rgba(255, 255, 255, 0.025);
+  }
+
   /* ── Midnight theme — deep navy with bright blue accents ── */
   .midnight {
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-border-color: rgba(100, 140, 255, 0.12);
+    --glass-header-bg: rgba(255, 255, 255, 0.03);
+    --glass-row-hover: rgba(255, 255, 255, 0.03);
     --background: oklch(0.11 0.04 255);
     --foreground: oklch(0.93 0.015 250);
     --card: oklch(0.15 0.05 255);
@@ -142,4 +161,67 @@
 @keyframes fade-out {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+/* ── Dashboard glass classes ── */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.dark .glass-card,
+.midnight .glass-card {
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 8px 32px rgba(0,0,0,0.3);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-color);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.dark .glass-panel,
+.midnight .glass-panel {
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.03),
+    0 8px 32px rgba(0,0,0,0.25);
+}
+
+.glass-row-hover:hover {
+  background: var(--glass-row-hover);
+}
+
+/* ── Dashboard ambient gradient background ── */
+.dashboard-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.dark .dashboard-bg::before {
+  background:
+    radial-gradient(ellipse 70% 50% at -5% -15%, rgba(59, 130, 246, 0.09) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 40% at 105% 85%, rgba(99, 102, 241, 0.07) 0%, transparent 60%);
+}
+.midnight .dashboard-bg::before {
+  background:
+    radial-gradient(ellipse 70% 50% at -5% -15%, rgba(59, 130, 246, 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 40% at 105% 85%, rgba(79, 70, 229, 0.14) 0%, transparent 60%);
+}
+
+.animate-shimmer {
+  animation: shimmer 1.8s linear infinite;
+  background-size: 200% 100%;
 }
