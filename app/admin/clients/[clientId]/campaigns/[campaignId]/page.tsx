@@ -11,6 +11,7 @@ import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLea
 import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
 import { AddLeadsButton } from '@/components/admin/AddLeadsButton'
 import { CampaignEditButton } from '@/components/admin/CampaignEditButton'
+import { CampaignSequenceInfo } from '@/components/admin/CampaignSequenceInfo'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap, AlertTriangle } from 'lucide-react'
 import type { Booking, Lead, LeadEvent, Email, SmsMessage } from '@/lib/supabase'
@@ -234,11 +235,7 @@ export default async function CampaignDetailPage({ params }: Props) {
         </div>
       )}
 
-      {campaign.status === 'active' && campaign.channel === 'both' && (
-        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-          <strong className="text-foreground">SMS timing:</strong> SMS messages are sent automatically by the follow-up cron — SMS 1 fires ~24 hrs after Email 1 if unopened, SMS 2–3 at 48 hrs after the corresponding email.
-        </div>
-      )}
+      <CampaignSequenceInfo channel={campaign.channel} />
 
       {/* Health score warning banner — shown when score < 60 */}
       {campaignHealth && campaignHealth.score < 60 && (

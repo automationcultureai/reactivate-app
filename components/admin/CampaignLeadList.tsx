@@ -101,6 +101,7 @@ interface CampaignLeadListProps {
   leads: LeadWithEvents[]
   campaignId: string
   campaignStatus: string
+  channel?: string
   clientEmail?: string
   clientBusinessName?: string
   clientBusinessAddress?: string
@@ -110,6 +111,7 @@ export function CampaignLeadList({
   leads: initialLeads,
   campaignId,
   campaignStatus,
+  channel,
   clientEmail,
   clientBusinessName,
   clientBusinessAddress,
