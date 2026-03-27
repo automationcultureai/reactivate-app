@@ -6,10 +6,10 @@ export default function SignUpPage() {
       <div className="flex flex-col items-center gap-6">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-            Reactivate
+            Automation Culture Client Portal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            AI-powered reactivation campaigns
+            Welcome and have a great day!
           </p>
         </div>
         <SignUp />
