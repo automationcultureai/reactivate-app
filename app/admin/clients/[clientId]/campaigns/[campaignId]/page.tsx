@@ -254,45 +254,37 @@ export default async function CampaignDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* Metadata */}
-      <div className="rounded-lg border border-border bg-card p-4">
-        <dl className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4">
-          {[
-            { label: 'Channel',       value: campaign.channel.toUpperCase() },
-            { label: 'Tone',          value: campaign.tone_preset },
-            { label: 'Consent basis', value: campaign.consent_basis },
-            { label: 'Leads',         value: String(leads) },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <dt className="text-xs text-muted-foreground">{label}</dt>
-              <dd className="text-sm font-medium text-foreground mt-0.5 capitalize">{value}</dd>
-            </div>
-          ))}
-          {campaign.activated_at && (
-            <div>
-              <dt className="text-xs text-muted-foreground">Activated</dt>
-              <dd className="text-sm font-medium text-foreground mt-0.5">
-                {new Date(campaign.activated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </dd>
-            </div>
-          )}
-          {campaignHealth && (
-            <div>
-              <dt className="text-xs text-muted-foreground">List health</dt>
-              <dd className={cn(
-                'text-sm font-semibold mt-0.5 font-mono',
-                campaignHealth.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
-                campaignHealth.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
-                'text-red-600 dark:text-red-400'
-              )}>
-                {campaignHealth.score}/100{' '}
-                <span className="font-normal capitalize text-muted-foreground">
-                  · {(campaignHealth.tier as string).replace('_', ' ')}
-                </span>
-              </dd>
-            </div>
-          )}
-        </dl>
+      {/* Metadata — compact single line */}
+      <div className="flex items-center gap-x-6 gap-y-1 flex-wrap text-sm border-t border-border pt-4">
+        {[
+          { label: 'Channel',       value: campaign.channel.toUpperCase() },
+          { label: 'Tone',          value: campaign.tone_preset },
+          { label: 'Consent',       value: campaign.consent_basis },
+          { label: 'Leads',         value: String(leads) },
+          ...(campaign.activated_at ? [{
+            label: 'Activated',
+            value: new Date(campaign.activated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }),
+          }] : []),
+        ].map(({ label, value }) => (
+          <span key={label} className="whitespace-nowrap">
+            <span className="text-muted-foreground">{label} </span>
+            <span className="font-medium text-foreground capitalize">{value}</span>
+          </span>
+        ))}
+        {campaignHealth && (
+          <span className="whitespace-nowrap">
+            <span className="text-muted-foreground">List health </span>
+            <span className={cn(
+              'font-semibold font-mono',
+              campaignHealth.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
+              campaignHealth.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
+              'text-red-600 dark:text-red-400'
+            )}>
+              {campaignHealth.score}/100
+            </span>
+            <span className="text-muted-foreground capitalize"> · {(campaignHealth.tier as string).replace('_', ' ')}</span>
+          </span>
+        )}
       </div>
 
       {/* Analytics */}
