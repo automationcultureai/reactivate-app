@@ -93,6 +93,45 @@
     --glass-row-hover: rgba(255, 255, 255, 0.04);
   }
 
+  /* ── Dusk theme — warm dark with amber accents ── */
+  .dusk {
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border-color: rgba(251, 180, 80, 0.15);
+    --glass-header-bg: rgba(255, 255, 255, 0.05);
+    --glass-row-hover: rgba(255, 255, 255, 0.04);
+    --background: oklch(0.13 0.02 60);
+    --foreground: oklch(0.92 0.02 75);
+    --card: oklch(0.17 0.025 60);
+    --card-foreground: oklch(0.92 0.02 75);
+    --popover: oklch(0.17 0.025 60);
+    --popover-foreground: oklch(0.92 0.02 75);
+    --primary: oklch(0.72 0.16 60);
+    --primary-foreground: oklch(0.12 0.02 60);
+    --secondary: oklch(0.22 0.03 60);
+    --secondary-foreground: oklch(0.92 0.02 75);
+    --muted: oklch(0.20 0.025 60);
+    --muted-foreground: oklch(0.62 0.04 70);
+    --accent: oklch(0.27 0.04 60);
+    --accent-foreground: oklch(0.92 0.02 75);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(0.72 0.16 60 / 14%);
+    --input: oklch(1 0 0 / 8%);
+    --ring: oklch(0.72 0.16 60);
+    --chart-1: oklch(0.72 0.16 60);
+    --chart-2: oklch(0.65 0.18 50);
+    --chart-3: oklch(0.58 0.17 40);
+    --chart-4: oklch(0.50 0.15 55);
+    --chart-5: oklch(0.43 0.13 65);
+    --sidebar: oklch(0.10 0.018 60);
+    --sidebar-foreground: oklch(0.92 0.02 75);
+    --sidebar-primary: oklch(0.72 0.16 60);
+    --sidebar-primary-foreground: oklch(0.12 0.02 60);
+    --sidebar-accent: oklch(0.20 0.025 60);
+    --sidebar-accent-foreground: oklch(0.92 0.02 75);
+    --sidebar-border: oklch(0.72 0.16 60 / 12%);
+    --sidebar-ring: oklch(0.72 0.16 60);
+  }
+
   /* ── Midnight theme — deep navy with bright blue accents ── */
   .midnight {
     --glass-bg: rgba(255, 255, 255, 0.08);
@@ -177,7 +216,8 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .dark .glass-card,
-.midnight .glass-card {
+.midnight .glass-card,
+.dusk .glass-card {
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.04),
     inset 0 1px 0 rgba(255,255,255,0.06),
@@ -192,7 +232,8 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .dark .glass-panel,
-.midnight .glass-panel {
+.midnight .glass-panel,
+.dusk .glass-panel {
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.03),
     0 8px 32px rgba(0,0,0,0.25);

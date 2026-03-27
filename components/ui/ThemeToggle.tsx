@@ -2,7 +2,7 @@
 
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
-import { Sun, Moon, Waves } from 'lucide-react'
+import { Sun, Moon, Waves, Flame } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ const THEMES = [
   { id: 'light',    label: 'Light',    Icon: Sun   },
   { id: 'dark',     label: 'Dark',     Icon: Moon  },
   { id: 'midnight', label: 'Midnight', Icon: Waves },
+  { id: 'dusk',     label: 'Dusk',     Icon: Flame },
 ] as const
 
 export function ThemeToggle() {
