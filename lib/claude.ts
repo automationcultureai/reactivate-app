@@ -345,3 +345,70 @@ Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
 
   return smsList
 }
+
+// ============================================================
+// generateAbSubjectPairs
+// ============================================================
+
+const AB_STEP_DESCRIPTIONS: Record<number, string> = {
+  1: 'Initial reactivation — warm re-introduction to a dormant customer',
+  2: 'Follow-up — second touch based on whether they opened/clicked Email 1',
+  3: 'Final follow-up — last attempt before ending the sequence',
+  4: 'Re-engagement — for leads who clicked but did not complete booking',
+}
+
+/**
+ * Generates A/B subject line pairs for all 4 email steps in parallel.
+ * Called automatically at the end of campaign generation.
+ * Server-side only.
+ */
+export async function generateAbSubjectPairs(
+  clientName: string,
+  tonePreset: string,
+  toneCustom: string | null,
+  customInstructions: string | null
+): Promise<Record<number, { variant_a: string; variant_b: string }>> {
+  const client = getClient()
+  const tone = buildToneClause(tonePreset, toneCustom)
+  const instructionsBlock = customInstructions ? `\n\nCampaign hard rules: ${customInstructions}` : ''
+
+  async function generatePair(seqNum: number): Promise<{ variant_a: string; variant_b: string }> {
+    const prompt = `You are writing A/B test subject lines for a reactivation email campaign.
+
+Business: ${clientName}
+Email step: Email ${seqNum} — ${AB_STEP_DESCRIPTIONS[seqNum] ?? ''}
+Tone: ${tone}${instructionsBlock}
+
+Generate exactly 2 distinct subject line variants that test different approaches. They should:
+- Be clearly different from each other (different angle, emotion, or framing)
+- Be concise (under 60 characters each)
+- Avoid spam trigger words (FREE, WINNER, CLICK HERE, GUARANTEED, LIMITED TIME)
+- Avoid ALL CAPS and excessive punctuation
+- Feel natural — not clickbait
+
+Return ONLY valid JSON with exactly these 2 keys, no explanation:
+{"variant_a":"...","variant_b":"..."}`
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const rawText = message.content[0]?.type === 'text' ? message.content[0].text : ''
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error(`No JSON in A/B response for step ${seqNum}`)
+    const result = JSON.parse(jsonMatch[0])
+    if (!result.variant_a || !result.variant_b) throw new Error(`Missing variants for step ${seqNum}`)
+    return result
+  }
+
+  const [pair1, pair2, pair3, pair4] = await Promise.all([
+    generatePair(1),
+    generatePair(2),
+    generatePair(3),
+    generatePair(4),
+  ])
+
+  return { 1: pair1, 2: pair2, 3: pair3, 4: pair4 }
+}

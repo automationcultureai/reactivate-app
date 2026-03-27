@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
-import { generateEmailSequence, generateSmsSequence } from '@/lib/claude'
+import { generateEmailSequence, generateSmsSequence, generateAbSubjectPairs } from '@/lib/claude'
 
 // Each call processes up to `limit` leads (default 10) then returns `remaining`.
 // The client loops until remaining === 0, keeping each Vercel invocation short.
@@ -197,6 +197,34 @@ export async function POST(
 
       if (updateError) {
         console.error('[generate] Failed to update campaign status:', updateError.message)
+      }
+    }
+
+    // 6. Auto-generate A/B subject line variants on the last batch for email campaigns.
+    // Only runs once — skipped if variants already exist (idempotent for re-runs).
+    if (remaining === 0 && (channel === 'email' || channel === 'both')) {
+      try {
+        const { count } = await supabase
+          .from('campaign_ab_tests')
+          .select('id', { count: 'exact', head: true })
+          .eq('campaign_id', campaignId)
+
+        if (!count || count === 0) {
+          const pairs = await generateAbSubjectPairs(clientName, tone_preset, tone_custom, custom_instructions)
+          await supabase.from('campaign_ab_tests').upsert(
+            [1, 2, 3, 4].map((seq) => ({
+              campaign_id: campaignId,
+              sequence_number: seq,
+              ab_test_enabled: true,
+              subject_variant_a: pairs[seq].variant_a,
+              subject_variant_b: pairs[seq].variant_b,
+            })),
+            { onConflict: 'campaign_id,sequence_number' }
+          )
+        }
+      } catch (err) {
+        // Non-fatal — log but don't fail the generation response
+        console.error('[generate] A/B subject generation failed:', err)
       }
     }
 

@@ -248,7 +248,7 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
         </Button>
       </div>
 
-      {/* A/B subject line testing — email only */}
+      {/* A/B subject line testing — email and email+SMS campaigns */}
       {(channel === 'email' || channel === 'both') && (
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 bg-muted/10 border-b border-border">
