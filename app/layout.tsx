@@ -29,7 +29,7 @@ export default function RootLayout({
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"
-            themes={['light', 'dark', 'midnight', 'dusk']}
+            themes={['light', 'dark', 'midnight', 'dusk', 'sand']}
             enableSystem={false}
             disableTransitionOnChange
           >

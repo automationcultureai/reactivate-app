@@ -93,6 +93,45 @@
     --glass-row-hover: rgba(255, 255, 255, 0.04);
   }
 
+  /* ── Sand theme — warm off-white with earthy tones ── */
+  .sand {
+    --glass-bg: rgba(0, 0, 0, 0.03);
+    --glass-border-color: rgba(0, 0, 0, 0.07);
+    --glass-header-bg: rgba(0, 0, 0, 0.03);
+    --glass-row-hover: rgba(0, 0, 0, 0.02);
+    --background: oklch(0.97 0.015 80);
+    --foreground: oklch(0.22 0.02 65);
+    --card: oklch(0.99 0.01 80);
+    --card-foreground: oklch(0.22 0.02 65);
+    --popover: oklch(0.99 0.01 80);
+    --popover-foreground: oklch(0.22 0.02 65);
+    --primary: oklch(0.40 0.06 65);
+    --primary-foreground: oklch(0.99 0.01 80);
+    --secondary: oklch(0.93 0.02 80);
+    --secondary-foreground: oklch(0.22 0.02 65);
+    --muted: oklch(0.93 0.02 80);
+    --muted-foreground: oklch(0.50 0.03 70);
+    --accent: oklch(0.91 0.025 78);
+    --accent-foreground: oklch(0.22 0.02 65);
+    --destructive: oklch(0.58 0.22 27);
+    --border: oklch(0.88 0.025 75);
+    --input: oklch(0.88 0.025 75);
+    --ring: oklch(0.55 0.05 65);
+    --chart-1: oklch(0.60 0.10 60);
+    --chart-2: oklch(0.52 0.12 50);
+    --chart-3: oklch(0.46 0.10 40);
+    --chart-4: oklch(0.40 0.08 55);
+    --chart-5: oklch(0.35 0.07 65);
+    --sidebar: oklch(0.94 0.02 78);
+    --sidebar-foreground: oklch(0.22 0.02 65);
+    --sidebar-primary: oklch(0.40 0.06 65);
+    --sidebar-primary-foreground: oklch(0.99 0.01 80);
+    --sidebar-accent: oklch(0.90 0.025 78);
+    --sidebar-accent-foreground: oklch(0.22 0.02 65);
+    --sidebar-border: oklch(0.86 0.025 75);
+    --sidebar-ring: oklch(0.55 0.05 65);
+  }
+
   /* ── Dusk theme — warm dark with amber accents ── */
   .dusk {
     --glass-bg: rgba(255, 255, 255, 0.06);
