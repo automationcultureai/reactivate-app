@@ -4,14 +4,15 @@ import { buttonVariants } from '@/lib/button-variants'
 import { BillingMonthFilter } from '@/components/admin/BillingMonthFilter'
 import { BillingClientList, type BillingClientData } from '@/components/admin/BillingClientList'
 import { type InvoiceStatus } from '@/components/admin/BillingStatusSelect'
-import { Download } from 'lucide-react'
+import { Download, ArrowUpDown } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; from?: string; to?: string }>
+  searchParams: Promise<{ month?: string; from?: string; to?: string; sort?: string; dir?: string }>
 }) {
-  const { month, from, to } = await searchParams
+  const { month, from, to, sort, dir } = await searchParams
 
   const selectedMonth = month && /^\d{4}-\d{2}$/.test(month) ? month : null
   const customFrom = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : null
@@ -157,7 +158,15 @@ export default async function BillingPage({
     }
   }
 
-  const clientGroups     = Array.from(clientMap.values())
+  const clientGroups = Array.from(clientMap.values()).sort((a, b) => {
+    const asc = dir !== 'desc'
+    if (sort === 'outstanding') return asc ? a.totalOutstanding - b.totalOutstanding : b.totalOutstanding - a.totalOutstanding
+    if (sort === 'invoiced')    return asc ? a.totalInvoiced    - b.totalInvoiced    : b.totalInvoiced    - a.totalInvoiced
+    if (sort === 'paid')        return asc ? a.totalPaid        - b.totalPaid        : b.totalPaid        - a.totalPaid
+    // default: name asc
+    const cmp = a.clientName.localeCompare(b.clientName)
+    return asc ? cmp : -cmp
+  })
   const grandOutstanding = clientGroups.reduce((s, g) => s + g.totalOutstanding, 0)
   const grandInvoiced    = clientGroups.reduce((s, g) => s + g.totalInvoiced, 0)
   const grandPaid        = clientGroups.reduce((s, g) => s + g.totalPaid, 0)
@@ -216,6 +225,28 @@ export default async function BillingPage({
           </div>
         ))}
       </div>
+
+      {clientGroups.length > 1 && (() => {
+        const base = new URLSearchParams({ ...(month ? { month } : {}), ...(from ? { from } : {}), ...(to ? { to } : {}) })
+        const sortLink = (s: string, label: string) => {
+          const nextDir = sort === s && dir !== 'desc' ? 'desc' : 'asc'
+          const p = new URLSearchParams(base); p.set('sort', s); p.set('dir', nextDir)
+          return (
+            <Link key={s} href={`?${p}`} className={cn(buttonVariants({ variant: sort === s ? 'secondary' : 'ghost', size: 'sm' }), 'text-xs gap-1.5')}>
+              <ArrowUpDown className="w-3 h-3" />{label}
+            </Link>
+          )
+        }
+        return (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-xs text-muted-foreground mr-1">Sort:</span>
+            {sortLink('name', 'Name')}
+            {sortLink('outstanding', 'Outstanding')}
+            {sortLink('invoiced', 'Invoiced')}
+            {sortLink('paid', 'Paid')}
+          </div>
+        )
+      })()}
 
       {clientGroups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border border-dashed border-border rounded-lg text-center">

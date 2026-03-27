@@ -45,17 +45,25 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
   }
 
   // Campaigns for this client (hide archived by default)
-  let campaignsQuery = supabase
+  const baseQuery = supabase
     .from('campaigns')
     .select('id, name, status, created_at, channel, deleted_at')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
 
-  if (!showArchived) {
-    campaignsQuery = campaignsQuery.is('deleted_at', null)
-  }
+  let { data: campaigns, error: campaignError } = await (
+    showArchived ? baseQuery : baseQuery.is('deleted_at', null)
+  )
 
-  const { data: campaigns } = await campaignsQuery
+  // If deleted_at column doesn't exist yet (migration pending), fall back to unfiltered
+  if (campaignError) {
+    const { data: fallback } = await supabase
+      .from('campaigns')
+      .select('id, name, status, created_at, channel')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+    campaigns = fallback
+  }
 
   // Count archived campaigns for the toggle
   const { count: archivedCount } = await supabase
