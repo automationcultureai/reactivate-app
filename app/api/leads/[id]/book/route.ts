@@ -126,6 +126,7 @@ export async function POST(
           to: email,
           replyTo: client.email,
           clientName: client.business_name || client.name,
+          clientBusinessName: client.business_name || undefined,
           scheduledAt: slot_start,
           leadToken: lead.booking_token,
         })

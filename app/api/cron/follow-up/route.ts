@@ -4,12 +4,14 @@ import { sendEmail, sendDelay } from '@/lib/email'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 import { sendAdminAlert } from '@/lib/alert'
 import { pickAbVariant, evaluateAbWinner } from '@/lib/ab-testing'
+import { isSmsAllowedNow, isEmailOptimalNow } from '@/lib/sydney-time'
 import type { Email, Lead, SmsMessage, CampaignAbTest } from '@/lib/supabase'
 
 // Allow up to 300 seconds — cron processes all active campaigns in one run
 export const maxDuration = 300
 
 // Timing thresholds
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
 const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000
@@ -17,20 +19,6 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000
 const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000
 
-// Returns current hour (0-23) and day-of-week (0=Sun) in Australia/Sydney timezone.
-// Uses en-US locale so Date constructor reliably parses the string.
-function getSydneyTime(): { hour: number; dayOfWeek: number } {
-  const sydneyDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }))
-  return { hour: sydneyDate.getHours(), dayOfWeek: sydneyDate.getDay() }
-}
-
-// SMS is only allowed Mon–Sat, 9am–7pm AEST/AEDT.
-// Outside this window the cron defers — timing thresholds are in days so a 24hr
-// slip has no meaningful impact on conversion.
-function isSmsAllowedNow(): boolean {
-  const { hour, dayOfWeek } = getSydneyTime()
-  return dayOfWeek !== 0 && hour >= 9 && hour < 19
-}
 
 function verifyCronSecret(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -187,6 +175,7 @@ export async function POST(req: NextRequest) {
     }
 
     const now = Date.now()
+    const emailOptimal = isEmailOptimalNow() // hoist — avoid recomputing per lead
 
     for (const lead of leads as Lead[]) {
       if (remainingToday <= 0) break // Daily limit reached
@@ -237,7 +226,7 @@ export async function POST(req: NextRequest) {
           (wave === 2 && msSinceActivation >= THREE_DAYS_MS) ||
           (wave === 3 && msSinceActivation >= FIVE_DAYS_MS)
 
-        if (email1 && !email1.sent_at && waveReady) {
+        if (email1 && !email1.sent_at && waveReady && emailOptimal) {
           emailToSend = email1
           sequenceNumber = 1
         } else if (!hasEmail && hasSms && waveReady) {
@@ -292,9 +281,11 @@ export async function POST(req: NextRequest) {
         const anyEmail2Sent = leadEmails.some((e) => e.sequence_number === 2 && e.sent_at)
         if (email1?.sent_at && !anyEmail2Sent) {
           const msSince = now - new Date(email1.sent_at).getTime()
-          if (msSince >= THREE_DAYS_MS) {
-            // Determine branch: clicked > opened > unopened
-            const state2 = email1.clicked_at ? '2_clicked' : email1.opened_at ? '2_opened' : '2_unopened'
+          // Determine branch: clicked > opened > unopened
+          const state2 = email1.clicked_at ? '2_clicked' : email1.opened_at ? '2_opened' : '2_unopened'
+          // Clicked leads have high intent — follow up sooner (2 days vs 3)
+          const email2Threshold = state2 === '2_clicked' ? TWO_DAYS_MS : THREE_DAYS_MS
+          if (msSince >= email2Threshold) {
             const email2 = getEmail(2, state2)
             if (email2 && !email2.sent_at) {
               emailToSend = email2
@@ -362,8 +353,10 @@ export async function POST(req: NextRequest) {
             if (!sentEmail) continue // corresponding email not sent yet
             if (sentEmail.clicked_at != null) continue // lead clicked — they're engaged, skip SMS
             const msSinceEmail = now - new Date(sentEmail.sent_at!).getTime()
-            if (sentEmail.opened_at == null && msSinceEmail >= FORTY_EIGHT_HOURS_MS) {
-              // Unopened after 48hrs
+            // SMS 1: fire after 24hrs unopened (high-intent window); SMS 2–3: 48hrs
+            const unopenedThreshold = seqNum === 1 ? TWENTY_FOUR_HOURS_MS : FORTY_EIGHT_HOURS_MS
+            if (sentEmail.opened_at == null && msSinceEmail >= unopenedThreshold) {
+              // Unopened after threshold
               smsBothSeq = seqNum
               break
             } else if (sentEmail.opened_at != null && msSinceEmail >= SEVENTY_TWO_HOURS_MS) {

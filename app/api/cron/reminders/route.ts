@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
         to: lead.email,
         replyTo: client.email,
         clientName,
+        clientBusinessName: client.business_name || undefined,
         scheduledAt: booking.scheduled_at,
         leadToken: lead.booking_token,
       })

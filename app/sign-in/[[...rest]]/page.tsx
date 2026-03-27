@@ -6,10 +6,10 @@ export default function SignInPage() {
       <div className="flex flex-col items-center gap-6">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-foreground tracking-tight">
-            Reactivate
+            Automation Culture Client Portal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            AI-powered reactivation campaigns
+            We automate the gruntwork. You take care of business.
           </p>
         </div>
         <SignIn />

@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/lib/supabase'
 import { sendEmail, sendDelay } from '@/lib/email'
 import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 import { pickAbVariant } from '@/lib/ab-testing'
+import { isEmailOptimalNow } from '@/lib/sydney-time'
 
 // Allow up to 300 seconds on Vercel Pro
 // Note: 30–60s delay × leads means ~5–8 emails per invocation at max duration
@@ -40,6 +41,19 @@ export async function POST(
         { error: `Cannot send: campaign status is "${campaign.status}" — must be "ready"` },
         { status: 400 }
       )
+    }
+
+    // 3b. Time-of-day gate: Email 1 open rates peak Mon–Fri 9am–2pm AEST/AEDT.
+    // If outside that window, activate the campaign so the follow-up cron picks it up
+    // at the next optimal window — no emails sent now.
+    if (!isEmailOptimalNow()) {
+      const activatedAt = new Date().toISOString()
+      await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
+      return NextResponse.json({
+        success: true,
+        sent: 0,
+        message: 'Outside optimal send window (Mon–Fri 9am–2pm AEST). Campaign activated — emails will be sent at the next optimal window by the follow-up cron.',
+      })
     }
 
     const clientData = campaign.clients as {

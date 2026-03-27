@@ -174,12 +174,13 @@ export async function sendBookingConfirmation(options: {
   to: string
   replyTo: string
   clientName: string
+  clientBusinessName?: string
   scheduledAt: string
   leadToken: string
 }): Promise<void> {
-  const { to, replyTo, clientName, scheduledAt, leadToken } = options
+  const { to, replyTo, clientName, clientBusinessName, scheduledAt, leadToken } = options
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
-  const agencyName = process.env.AGENCY_NAME ?? 'Reactivate Agency'
+  const agencyName = clientBusinessName ?? process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
 
@@ -226,12 +227,13 @@ export async function sendBookingReminder(options: {
   to: string
   replyTo: string
   clientName: string
+  clientBusinessName?: string
   scheduledAt: string
   leadToken: string
 }): Promise<void> {
-  const { to, replyTo, clientName, scheduledAt, leadToken } = options
+  const { to, replyTo, clientName, clientBusinessName, scheduledAt, leadToken } = options
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
-  const agencyName = process.env.AGENCY_NAME ?? 'Reactivate Agency'
+  const agencyName = clientBusinessName ?? process.env.AGENCY_NAME ?? 'Reactivate Agency'
   const agencyAddress = process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
 
