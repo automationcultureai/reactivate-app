@@ -68,6 +68,20 @@ export function getSupabaseAnonClient(): SupabaseClient {
 // Shared database types matching the Supabase schema
 // ============================================================
 
+export type AvailabilityHours = {
+  timezone: string    // e.g. 'Australia/Sydney'
+  days: number[]      // 0=Sun 1=Mon … 6=Sat
+  start_hour: number  // 0–23
+  end_hour: number    // 0–23, exclusive
+}
+
+export const DEFAULT_AVAILABILITY: AvailabilityHours = {
+  timezone: 'Australia/Sydney',
+  days: [1, 2, 3, 4, 5],
+  start_hour: 9,
+  end_hour: 17,
+}
+
 export type Client = {
   id: string
   name: string
@@ -81,6 +95,7 @@ export type Client = {
   business_address: string | null  // Postal address for legal email footer compliance
   notes: string | null
   client_industry: string | null   // Added by migration 007 — used in intelligence dashboard
+  availability_hours: AvailabilityHours | null  // Added by migration 0013
   created_at: string
 }
 
@@ -115,6 +130,7 @@ export type Campaign = {
   template_id: string | null
   name: string
   status: 'draft' | 'ready' | 'active' | 'paused' | 'complete'
+  deleted_at: string | null  // Added by migration 0014 — null = visible, set = archived
   channel: 'email' | 'sms' | 'both'
   tone_preset: 'professional' | 'friendly' | 'casual' | 'urgent' | 'empathetic'
   tone_custom: string | null

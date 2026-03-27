@@ -12,7 +12,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Reactivate — AI Campaign Platform',
+  title: 'Automation Culture — Client Portal',
   description: 'AI-powered reactivation campaigns for small business clients.',
 }
 

@@ -14,7 +14,7 @@ export default async function BookingPage({ params }: Props) {
   // Fetch lead + campaign + client by booking_token
   const { data: lead } = await supabase
     .from('leads')
-    .select('id, name, status, campaign_id, client_id, clients(name, email, google_calendar_id, business_name)')
+    .select('id, name, status, campaign_id, client_id, clients(name, email, google_calendar_id, business_name, availability_hours)')
     .eq('booking_token', token)
     .single()
 
@@ -42,6 +42,7 @@ export default async function BookingPage({ params }: Props) {
     email: string
     google_calendar_id: string | null
     business_name: string | null
+    availability_hours: import('@/lib/supabase').AvailabilityHours | null
   } | null
 
   const clientDisplayName = clientData?.business_name || clientData?.name || 'the business'
@@ -68,7 +69,7 @@ export default async function BookingPage({ params }: Props) {
   let calendarErrorMessage = ''
   if (clientData?.google_calendar_id) {
     try {
-      slots = await getAvailableSlots(clientData.google_calendar_id)
+      slots = await getAvailableSlots(clientData.google_calendar_id, 14, clientData.availability_hours)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('[book/page] Failed to fetch calendar slots:', message)

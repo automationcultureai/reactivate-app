@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { AvailabilityHours, DEFAULT_AVAILABILITY } from '@/lib/supabase'
 
 // ============================================================
 // Types
@@ -7,6 +8,41 @@ import { google } from 'googleapis'
 export interface TimeSlot {
   start: string  // ISO 8601
   end: string    // ISO 8601
+}
+
+// ============================================================
+// Timezone helpers
+// ============================================================
+
+// Given a UTC epoch (ms), return the YYYY-MM-DD string and day-of-week (0=Sun)
+// as they appear in the given IANA timezone.
+function getLocalDateInfo(ms: number, tz: string): { dateStr: string; dayOfWeek: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+  }).formatToParts(new Date(ms))
+  const p: Record<string, string> = {}
+  for (const part of parts) if (part.type !== 'literal') p[part.type] = part.value
+  const dow = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[p.weekday] ?? 0
+  return { dateStr: `${p.year}-${p.month}-${p.day}`, dayOfWeek: dow }
+}
+
+// Convert a local YYYY-MM-DD date and hour to UTC milliseconds.
+// Handles DST correctly for any IANA timezone including half-hour offsets.
+function localHourToUtcMs(dateStr: string, hour: number, tz: string): number {
+  // Treat the desired local time as UTC first, then measure the offset
+  const candidate = new Date(`${dateStr}T${String(hour).padStart(2, '0')}:00:00Z`)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: '2-digit', minute: '2-digit',
+    hour12: false,
+  }).formatToParts(candidate)
+  const p: Record<string, string> = {}
+  for (const part of parts) if (part.type !== 'literal') p[part.type] = part.value
+  const localH = parseInt(p.hour) % 24
+  const localM = parseInt(p.minute)
+  const diffMs = ((localH * 60 + localM) - hour * 60) * 60 * 1000
+  return candidate.getTime() - diffMs
 }
 
 // ============================================================
@@ -50,9 +86,13 @@ function getOAuth2Client() {
 
 export async function getAvailableSlots(
   calendarId: string,
-  daysAhead = 14
+  daysAhead = 14,
+  availabilityHours?: AvailabilityHours | null
 ): Promise<TimeSlot[]> {
   if (!isCalendarConfigured()) return []  // graceful no-op when unconfigured
+
+  const avail = availabilityHours ?? DEFAULT_AVAILABILITY
+
   const auth = getOAuth2Client()
   const calendar = google.calendar({ version: 'v3', auth })
 
@@ -81,35 +121,25 @@ export async function getAvailableSlots(
     end: new Date(b.end!).getTime(),
   }))
 
-  // Generate 1-hour slots during business hours (9am–5pm UTC), Mon–Fri
+  // Generate 1-hour slots using the client's local availability hours + timezone
   const slots: TimeSlot[] = []
   const cursor = new Date(timeMin)
   cursor.setUTCHours(0, 0, 0, 0)
 
   while (cursor < timeMax) {
-    const dayOfWeek = cursor.getUTCDay()
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+    const { dateStr, dayOfWeek } = getLocalDateInfo(cursor.getTime(), avail.timezone)
 
-    if (!isWeekend) {
-      for (let hour = 9; hour < 17; hour++) {
-        const start = new Date(cursor)
-        start.setUTCHours(hour, 0, 0, 0)
-        const end = new Date(start)
-        end.setUTCHours(hour + 1, 0, 0, 0)
+    if (avail.days.includes(dayOfWeek)) {
+      for (let hour = avail.start_hour; hour < avail.end_hour; hour++) {
+        const startMs = localHourToUtcMs(dateStr, hour, avail.timezone)
+        const endMs   = localHourToUtcMs(dateStr, hour + 1, avail.timezone)
 
-        // Skip past slots
-        if (start.getTime() <= now.getTime()) continue
+        if (startMs <= now.getTime()) continue
+        if (startMs >= timeMax.getTime()) continue
 
-        // Skip if outside our window
-        if (start >= timeMax) continue
-
-        // Skip if overlaps with any busy interval
-        const startMs = start.getTime()
-        const endMs = end.getTime()
         const isAvailable = !busy.some((b) => startMs < b.end && endMs > b.start)
-
         if (isAvailable) {
-          slots.push({ start: start.toISOString(), end: end.toISOString() })
+          slots.push({ start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() })
         }
       }
     }

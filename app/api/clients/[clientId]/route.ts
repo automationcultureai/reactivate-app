@@ -3,6 +3,13 @@ import { z } from 'zod'
 import { getAdminUserId } from '@/lib/auth'
 import { getSupabaseClient } from '@/lib/supabase'
 
+const availabilityHoursSchema = z.object({
+  timezone: z.string().min(1).max(100),
+  days: z.array(z.number().int().min(0).max(6)),
+  start_hour: z.number().int().min(0).max(22),
+  end_hour: z.number().int().min(1).max(23),
+})
+
 const updateClientSchema = z.object({
   notes: z.string().max(5000).nullable().optional(),
   google_calendar_id: z.string().max(500).nullable().optional(),
@@ -11,6 +18,7 @@ const updateClientSchema = z.object({
   email: z.string().email().optional(),
   business_name: z.string().max(200).nullable().optional(),
   business_address: z.string().max(500).nullable().optional(),
+  availability_hours: availabilityHoursSchema.nullable().optional(),
 })
 
 export async function PATCH(
@@ -45,6 +53,7 @@ export async function PATCH(
     if (parsed.data.email !== undefined) updateData.email = parsed.data.email
     if (parsed.data.business_name !== undefined) updateData.business_name = parsed.data.business_name
     if (parsed.data.business_address !== undefined) updateData.business_address = parsed.data.business_address
+    if (parsed.data.availability_hours !== undefined) updateData.availability_hours = parsed.data.availability_hours
 
     const supabase = getSupabaseClient()
     const { data: client, error } = await supabase

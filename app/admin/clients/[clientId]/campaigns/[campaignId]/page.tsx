@@ -234,6 +234,12 @@ export default async function CampaignDetailPage({ params }: Props) {
         </div>
       )}
 
+      {campaign.status === 'active' && campaign.channel === 'both' && (
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+          <strong className="text-foreground">SMS timing:</strong> SMS messages are sent automatically by the follow-up cron — SMS 1 fires ~24 hrs after Email 1 if unopened, SMS 2–3 at 48 hrs after the corresponding email.
+        </div>
+      )}
+
       {/* Health score warning banner — shown when score < 60 */}
       {campaignHealth && campaignHealth.score < 60 && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-3">
@@ -252,34 +258,44 @@ export default async function CampaignDetailPage({ params }: Props) {
       )}
 
       {/* Metadata */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Channel', value: campaign.channel.toUpperCase() },
-          { label: 'Tone', value: campaign.tone_preset },
-          { label: 'Consent basis', value: campaign.consent_basis },
-          { label: 'Leads', value: String(leads) },
-        ].map(({ label, value }) => (
-          <div key={label} className="p-4 rounded-lg border border-border">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-sm font-medium text-foreground mt-1 capitalize">{value}</p>
-          </div>
-        ))}
-        {campaignHealth && (
-          <div className="p-4 rounded-lg border border-border">
-            <p className="text-xs text-muted-foreground">List health</p>
-            <p className={cn(
-              'text-sm font-semibold mt-1 font-mono',
-              campaignHealth.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
-              campaignHealth.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
-              'text-red-600 dark:text-red-400'
-            )}>
-              {campaignHealth.score}/100
-            </p>
-            <p className="text-xs text-muted-foreground capitalize mt-0.5">
-              {(campaignHealth.tier as string).replace('_', ' ')}
-            </p>
-          </div>
-        )}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <dl className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-4">
+          {[
+            { label: 'Channel',       value: campaign.channel.toUpperCase() },
+            { label: 'Tone',          value: campaign.tone_preset },
+            { label: 'Consent basis', value: campaign.consent_basis },
+            { label: 'Leads',         value: String(leads) },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="text-sm font-medium text-foreground mt-0.5 capitalize">{value}</dd>
+            </div>
+          ))}
+          {campaign.activated_at && (
+            <div>
+              <dt className="text-xs text-muted-foreground">Activated</dt>
+              <dd className="text-sm font-medium text-foreground mt-0.5">
+                {new Date(campaign.activated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </dd>
+            </div>
+          )}
+          {campaignHealth && (
+            <div>
+              <dt className="text-xs text-muted-foreground">List health</dt>
+              <dd className={cn(
+                'text-sm font-semibold mt-0.5 font-mono',
+                campaignHealth.tier === 'healthy' ? 'text-green-600 dark:text-green-400' :
+                campaignHealth.tier === 'moderate' ? 'text-amber-600 dark:text-amber-400' :
+                'text-red-600 dark:text-red-400'
+              )}>
+                {campaignHealth.score}/100{' '}
+                <span className="font-normal capitalize text-muted-foreground">
+                  · {(campaignHealth.tier as string).replace('_', ' ')}
+                </span>
+              </dd>
+            </div>
+          )}
+        </dl>
       </div>
 
       {/* Analytics */}

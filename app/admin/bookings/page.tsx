@@ -1,7 +1,16 @@
 import { getSupabaseClient } from '@/lib/supabase'
 import { AdminBookingsList, type ClientGroupData } from '@/components/admin/AdminBookingsList'
 
-export default async function AdminBookingsPage() {
+type SortKey = 'name' | 'upcoming' | 'completed' | 'total'
+
+interface Props {
+  searchParams: Promise<{ sort?: string; dir?: string }>
+}
+
+export default async function AdminBookingsPage({ searchParams }: Props) {
+  const { sort = 'upcoming', dir = 'desc' } = await searchParams
+  const sortKey = (['name', 'upcoming', 'completed', 'total'].includes(sort) ? sort : 'upcoming') as SortKey
+  const sortDir = dir === 'asc' ? 'asc' : 'desc'
   const supabase = getSupabaseClient()
 
   const { data: rawBookings, error } = await supabase
@@ -87,19 +96,52 @@ export default async function AdminBookingsPage() {
     return { clientId: g.clientId, clientName: g.clientName, campaigns, counts }
   })
 
+  // Sort client groups
+  clientGroups.sort((a, b) => {
+    let diff = 0
+    if (sortKey === 'name')      diff = a.clientName.localeCompare(b.clientName)
+    else if (sortKey === 'upcoming')  diff = a.counts.upcoming  - b.counts.upcoming
+    else if (sortKey === 'completed') diff = a.counts.completed - b.counts.completed
+    else if (sortKey === 'total')     diff = (a.counts.upcoming + a.counts.completed) - (b.counts.upcoming + b.counts.completed)
+    return sortDir === 'asc' ? diff : -diff
+  })
+
   const all       = rawBookings ?? []
   const upcoming  = all.filter((b) => b.status === 'booked').length
   const completed = all.filter((b) => b.status === 'completed').length
   const cancelled = all.filter((b) => b.status === 'cancelled').length
 
+  function sortHref(key: SortKey) {
+    const newDir = sortKey === key && sortDir === 'desc' ? 'asc' : 'desc'
+    return `?sort=${key}&dir=${newDir}`
+  }
+  function sortLabel(key: SortKey) {
+    if (sortKey !== key) return ''
+    return sortDir === 'desc' ? ' ↓' : ' ↑'
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Bookings</h1>
-        <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-          <span className="text-blue-600 dark:text-blue-400 font-medium">{upcoming} upcoming</span>
-          <span className="text-green-600 dark:text-green-400 font-medium">{completed} completed</span>
-          <span>{cancelled} cancelled</span>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Bookings</h1>
+          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+            <span className="text-blue-600 dark:text-blue-400 font-medium">{upcoming} upcoming</span>
+            <span className="text-green-600 dark:text-green-400 font-medium">{completed} completed</span>
+            <span>{cancelled} cancelled</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <span>Sort by:</span>
+          {(['name', 'upcoming', 'completed', 'total'] as SortKey[]).map((key) => (
+            <a
+              key={key}
+              href={sortHref(key)}
+              className={`px-2 py-1 rounded capitalize transition-colors ${sortKey === key ? 'bg-muted text-foreground font-medium' : 'hover:bg-muted/50'}`}
+            >
+              {key}{sortLabel(key)}
+            </a>
+          ))}
         </div>
       </div>
 

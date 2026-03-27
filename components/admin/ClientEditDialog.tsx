@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Client } from '@/lib/supabase'
+import { Client, AvailabilityHours, DEFAULT_AVAILABILITY } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const TIMEZONES = [
+  { value: 'Australia/Sydney',    label: 'Sydney / Melbourne (AEST/AEDT)' },
+  { value: 'Australia/Brisbane',  label: 'Brisbane (AEST)' },
+  { value: 'Australia/Adelaide',  label: 'Adelaide (ACST/ACDT)' },
+  { value: 'Australia/Perth',     label: 'Perth (AWST)' },
+  { value: 'Australia/Darwin',    label: 'Darwin (ACST)' },
+  { value: 'Pacific/Auckland',    label: 'Auckland (NZST/NZDT)' },
+  { value: 'Pacific/Auckland',    label: 'Auckland (NZST/NZDT)' },
+  { value: 'America/New_York',    label: 'New York (ET)' },
+  { value: 'America/Chicago',     label: 'Chicago (CT)' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (PT)' },
+  { value: 'Europe/London',       label: 'London (GMT/BST)' },
+]
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const DAY_FULL   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 interface ClientEditDialogProps {
   client: Client
@@ -33,7 +51,18 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
   const [googleCalendarId, setGoogleCalendarId] = useState(client.google_calendar_id ?? '')
   const [businessName, setBusinessName] = useState(client.business_name ?? '')
   const [businessAddress, setBusinessAddress] = useState(client.business_address ?? '')
+  const avail = client.availability_hours ?? DEFAULT_AVAILABILITY
+  const [availTimezone, setAvailTimezone] = useState(avail.timezone)
+  const [availDays, setAvailDays] = useState<number[]>(avail.days)
+  const [availStartHour, setAvailStartHour] = useState(String(avail.start_hour))
+  const [availEndHour, setAvailEndHour] = useState(String(avail.end_hour))
   const [saving, setSaving] = useState(false)
+
+  function toggleDay(d: number) {
+    setAvailDays((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
+    )
+  }
 
   async function handleSave() {
     const commissionCents = Math.round(parseFloat(commissionDollars) * 100)
@@ -44,6 +73,20 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
 
     setSaving(true)
     try {
+      const startH = parseInt(availStartHour)
+      const endH = parseInt(availEndHour)
+      if (isNaN(startH) || isNaN(endH) || startH < 0 || endH > 23 || startH >= endH) {
+        toast.error('Availability hours: start must be before end (0–23)')
+        setSaving(false)
+        return
+      }
+      const availability_hours: AvailabilityHours = {
+        timezone: availTimezone,
+        days: availDays,
+        start_hour: startH,
+        end_hour: endH,
+      }
+
       const res = await fetch(`/api/clients/${client.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -54,6 +97,7 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
           google_calendar_id: googleCalendarId.trim() || null,
           business_name: businessName.trim() || null,
           business_address: businessAddress.trim() || null,
+          availability_hours,
         }),
       })
       const json = await res.json()
@@ -148,6 +192,78 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
               placeholder="123 Main St, City, Postcode"
               disabled={saving}
             />
+          </div>
+
+          {/* Booking availability */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            <p className="text-sm font-medium text-foreground">Booking availability</p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="client-tz">Timezone</Label>
+              <select
+                id="client-tz"
+                value={availTimezone}
+                onChange={(e) => setAvailTimezone(e.target.value)}
+                disabled={saving}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {TIMEZONES.map((tz) => (
+                  <option key={tz.value + tz.label} value={tz.value}>{tz.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Available days</Label>
+              <div className="flex gap-1">
+                {DAY_LABELS.map((label, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleDay(i)}
+                    disabled={saving}
+                    title={DAY_FULL[i]}
+                    className={cn(
+                      'w-8 h-8 rounded text-xs font-medium transition-colors',
+                      availDays.includes(i)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="client-start-hour">Opens (hour, 0–23)</Label>
+                <Input
+                  id="client-start-hour"
+                  type="number"
+                  min={0}
+                  max={22}
+                  value={availStartHour}
+                  onChange={(e) => setAvailStartHour(e.target.value)}
+                  placeholder="9"
+                  disabled={saving}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="client-end-hour">Closes (hour, 0–23)</Label>
+                <Input
+                  id="client-end-hour"
+                  type="number"
+                  min={1}
+                  max={23}
+                  value={availEndHour}
+                  onChange={(e) => setAvailEndHour(e.target.value)}
+                  placeholder="17"
+                  disabled={saving}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
