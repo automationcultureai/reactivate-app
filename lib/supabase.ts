@@ -118,7 +118,7 @@ export type CampaignTemplate = {
   id: string
   name: string
   channel: 'email' | 'sms' | 'both'
-  tone_preset: 'professional' | 'friendly' | 'casual' | 'urgent' | 'empathetic'
+  tone_preset: 'professional' | 'friendly' | 'casual' | 'empathetic' | 'direct' | 'authoritative' | 'playful' | 'sincere' | 'nostalgic' | 'consultative'
   tone_custom: string | null
   custom_instructions: string | null
   created_at: string
@@ -132,7 +132,7 @@ export type Campaign = {
   status: 'draft' | 'ready' | 'active' | 'paused' | 'complete'
   deleted_at: string | null  // Added by migration 0014 — null = visible, set = archived
   channel: 'email' | 'sms' | 'both'
-  tone_preset: 'professional' | 'friendly' | 'casual' | 'urgent' | 'empathetic'
+  tone_preset: 'professional' | 'friendly' | 'casual' | 'empathetic' | 'direct' | 'authoritative' | 'playful' | 'sincere' | 'nostalgic' | 'consultative'
   tone_custom: string | null
   custom_instructions: string | null
   consent_basis: 'Previous customer' | 'Quote/enquiry requested' | 'Service subscriber' | 'Other'

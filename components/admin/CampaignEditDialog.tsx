@@ -37,8 +37,13 @@ const TONE_OPTIONS = [
   { value: 'professional', label: 'Professional' },
   { value: 'friendly', label: 'Friendly' },
   { value: 'casual', label: 'Casual' },
-  { value: 'urgent', label: 'Urgent' },
   { value: 'empathetic', label: 'Empathetic' },
+  { value: 'direct', label: 'Direct' },
+  { value: 'authoritative', label: 'Authoritative' },
+  { value: 'playful', label: 'Playful' },
+  { value: 'sincere', label: 'Sincere' },
+  { value: 'nostalgic', label: 'Nostalgic' },
+  { value: 'consultative', label: 'Consultative' },
 ]
 
 const CHANNEL_OPTIONS = [

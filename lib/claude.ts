@@ -32,8 +32,13 @@ const TONE_MAP: Record<string, string> = {
   professional: 'formal, respectful, business-like',
   friendly: 'warm, approachable, conversational',
   casual: 'relaxed, informal, like a friend',
-  urgent: 'time-sensitive, direct, action-focused',
   empathetic: 'understanding, caring, patient',
+  direct: 'concise, no-nonsense, gets straight to the point with no filler',
+  authoritative: 'confident, expert-led, commands trust without being pushy',
+  playful: 'lighthearted, witty, a touch of humour — never sarcastic',
+  sincere: 'genuine, heartfelt, zero sales pressure — reads like a real person',
+  nostalgic: 'leans into the past relationship, warm and sentimental reconnection',
+  consultative: 'advisory, helpful, positions the sender as a trusted expert',
 }
 
 // ============================================================
@@ -112,6 +117,7 @@ function buildLeadContextBlock(lead: LeadContext): string {
 export async function generateEmailSequence(
   lead: LeadContext,
   clientBusiness: string,
+  clientIndustry: string | null,
   tonePreset: string,
   toneCustom: string | null,
   customInstructions: string | null
@@ -120,37 +126,73 @@ export async function generateEmailSequence(
   const tone = buildToneClause(tonePreset, toneCustom)
   const instructions = buildInstructionsBlock(customInstructions)
   const leadContext = buildLeadContextBlock(lead)
+  const industryLine = clientIndustry ? `\nIndustry: ${clientIndustry}` : ''
 
-  const prompt = `You are a copywriter crafting personalised reactivation emails for a small business.
+  const prompt = `You are a direct response copywriter who specialises in reactivation campaigns for small businesses. Your job is to write email sequences that get dormant leads to book a job — not to sound impressive, not to sound like marketing, but to actually convert.
+
+The psychology here is specific: this lead already knows the business. They're not a cold prospect. The relationship exists. Your job is to reawaken it — with copy that feels like it came from a real person at a business they've dealt with before, not a bulk email tool.
 
 Lead name: ${lead.name}
-Business name: ${clientBusiness}
+Business name: ${clientBusiness}${industryLine}
 Tone: ${tone}${leadContext}${instructions}
 
-Write exactly 8 emails. Emails 2 and 3 each have 3 behaviour-based variants sent depending on what the lead did with the previous email:
+WHAT MAKES THIS COPY WORK:
 
-- email1: Initial reactivation — warm re-introduction, acknowledge the time since last contact, easy CTA with booking link
-- email2_unopened: Follow-up assuming lead never opened Email 1 — try a different angle or subject, keep it brief
-- email2_opened: Follow-up assuming lead opened Email 1 but didn't act — acknowledge their interest, reinforce the value, gentle nudge
-- email2_clicked: Follow-up assuming lead clicked the booking link but didn't complete — directly acknowledge the near-miss, make it easy to finish
-- email3_unopened: Final attempt for a lead who has not opened any emails — very brief, low-pressure, last chance
-- email3_opened: Final attempt for a lead who opened but never clicked — acknowledge their consideration, create mild urgency
-- email3_clicked: Final attempt for a lead who clicked twice but didn't book — address the hesitation directly, offer to help
-- email4: Re-engagement — for leads who clicked the booking link but didn't complete their booking, or whose appointment was cancelled — acknowledge the near-miss, offer to reschedule
+1. Subject lines that earn the open
+   - Write like a human, not a marketer — "Quick one, ${lead.name}" beats "Exclusive offer inside"
+   - Make it specific to the relationship or the business where possible
+   - Never clickbait. Never false urgency. Never ALL CAPS.
+   - Each subject must be completely distinct — different angle, different structure
+
+2. Body copy that converts
+   - Open with something that earns attention in the first sentence — not a greeting, not a compliment, a hook
+   - Reference the business naturally — not as a pitch, as context the lead already has
+   - Keep it human: short sentences, plain language, no corporate tone
+   - One idea per email. Don't stack benefits. Make one thing land.
+   - The CTA must feel like the obvious next step, not a demand — make booking feel easy and low-risk
+   - 150 words maximum. Every sentence must earn its place.
+
+3. Behavioural variants must feel genuinely different
+   - Unopened: assume they never saw it — try a completely different angle, subject, and opening
+   - Opened but didn't act: they were curious but not convinced — address the hesitation, not the hook
+   - Clicked but didn't book: they got close — acknowledge it directly, remove friction, make it dead simple
+   - These are not minor rewrites. Each variant should read like a different person sent it on a different day with a different reason.
+
+4. Spam avoidance is non-negotiable
+   - No spam trigger words (FREE, WINNER, GUARANTEED, LIMITED TIME, CLICK HERE, ACT NOW)
+   - No ALL CAPS words anywhere
+   - No excessive punctuation (!!!, ???, ...)
+   - No fake personalisation — if you don't have specific data, write something confident and general rather than inventing details
+
+5. When lead data is rich (last service date, job type, job value):
+   - Use it. Reference the service naturally. Acknowledge the time gap without making it awkward.
+   - "It's been a while since your [service]" beats "We noticed you haven't booked recently"
+
+6. When lead data is sparse (name and business only):
+   - Don't fabricate. Don't write "[service type]" as a placeholder.
+   - Write copy that works on the relationship itself — the prior connection is enough of a hook if the copy around it is sharp
+
+Write exactly 8 emails with these keys:
+- email1: Initial reactivation — warm re-entry, acknowledge the prior relationship, low-friction CTA
+- email2_unopened: Different angle entirely — assume they never saw Email 1
+- email2_opened: They were interested but didn't act — address the hesitation
+- email2_clicked: They nearly booked — remove friction, make it easy to finish
+- email3_unopened: Final attempt, lead has opened nothing — ultra brief, zero pressure, one last door open
+- email3_opened: Final attempt, lead opened but never clicked — mild urgency, acknowledge their consideration
+- email3_clicked: Final attempt, lead clicked twice but never booked — address the hesitation head-on, offer to help
+- email4: Re-engagement for cancelled or incomplete bookings — acknowledge the near-miss, make rebooking feel easy
 
 Non-negotiable rules:
 - Every email body must be 150 words or fewer
-- No spam trigger words (e.g. FREE, WINNER, CLICK HERE, GUARANTEED, LIMITED TIME)
-- No ALL CAPS words
-- No excessive punctuation (!!!, ???, ...)
-- Address the lead by name (${lead.name}) naturally — not in every line
-- Include [BOOKING_LINK] exactly once per email body as a natural call to action — this will be replaced with the real URL
-- Each subject line must be unique and not clickbait
-- Write in plain text — no HTML, no markdown
-- Do not start with "Dear" — begin naturally
-- Do not include unsubscribe text — that is appended automatically
+- Include [BOOKING_LINK] exactly once per email body as a natural call to action — never as a raw URL label
+- Each subject line must be unique and use a different structural approach
+- Write in plain text — no HTML, no markdown, no bullet points in body copy
+- Do not start any email with "Dear" — open naturally
+- Do not include unsubscribe text — appended automatically
+- Address the lead by first name at most once per email — not in every sentence
+- No fake urgency. If there's a real reason to act now, use it. If not, don't invent one.
 
-Return ONLY a valid JSON object with exactly these 8 keys. No preamble, no explanation, no code blocks.
+Return ONLY a valid JSON object with exactly these 8 keys. Each key maps to an object with "subject" and "body". No preamble, no explanation, no code blocks.
 Format: {"email1":{"subject":"...","body":"..."},"email2_unopened":{"subject":"...","body":"..."},"email2_opened":{"subject":"...","body":"..."},"email2_clicked":{"subject":"...","body":"..."},"email3_unopened":{"subject":"...","body":"..."},"email3_opened":{"subject":"...","body":"..."},"email3_clicked":{"subject":"...","body":"..."},"email4":{"subject":"...","body":"..."}}`
 
   const message = await client.messages.create({
@@ -202,6 +244,7 @@ Format: {"email1":{"subject":"...","body":"..."},"email2_unopened":{"subject":".
 export async function generateSmsSequence(
   lead: LeadContext,
   clientBusiness: string,
+  clientIndustry: string | null,
   tonePreset: string,
   toneCustom: string | null,
   customInstructions: string | null,
@@ -211,33 +254,53 @@ export async function generateSmsSequence(
   const tone = buildToneClause(tonePreset, toneCustom)
   const instructions = buildInstructionsBlock(customInstructions)
   const leadContext = buildLeadContextBlock(lead)
+  const industryLine = clientIndustry ? `\nIndustry: ${clientIndustry}` : ''
 
   const emailContextBlock = emailSequence
     ? `\n\nThis lead is also receiving an email sequence. Each SMS fires only if the corresponding email went unopened after 48 hours. Write each SMS with a completely fresh angle — do not repeat the email's hook, phrasing, or CTA. Use a different entry point (e.g. if the email was warm/nostalgic, make the SMS direct/practical). Do not mention or reference email in the SMS copy.\n\nEmail copy for reference (do not repeat these angles):\n- Email 1: "${emailSequence.email1.body.slice(0, 140)}"\n- Email 2 (unopened follow-up): "${emailSequence.email2_unopened.body.slice(0, 100)}"\n- Email 3 (final attempt): "${emailSequence.email3_unopened.body.slice(0, 100)}"`
     : ''
 
-  const prompt = `You are writing personalised SMS reactivation messages for a small business.
+  const prompt = `You are a direct response copywriter writing SMS reactivation messages for small businesses. SMS is not email — it's personal, it's immediate, and it gets read. That means the bar is higher: if it reads like a bulk text, it gets ignored or reported as spam.
+
+The lead already knows this business. You are not introducing yourself to a stranger. You are reaching back out to someone who has a prior relationship with the sender — your job is to remind them of that relationship and make booking feel like the obvious, easy next step.
 
 Lead name: ${lead.name}
-Business name: ${clientBusiness}
+Business name: ${clientBusiness}${industryLine}
 Tone: ${tone}${leadContext}${emailContextBlock}${instructions}
 
-Write exactly 4 SMS messages. Each should feel personal, reference ${clientBusiness} by name, and give the lead enough context to remember who is contacting them and why. Aim for 2–3 sentences — enough to be meaningful, not so long it feels like spam.
+WHAT MAKES SMS COPY WORK:
 
-- SMS 1: Initial reactivation — greet ${lead.name} by name, mention ${clientBusiness}, reference the service or relationship naturally, include a clear booking link
-- SMS 2: Follow-up — assume no reply to SMS 1, try a slightly different angle or benefit, keep it warm not pushy
-- SMS 3: Final follow-up — last attempt, low pressure, acknowledge they may be busy, still offer the link
-- SMS 4: Re-engagement — for leads who clicked but didn't book or whose appointment was cancelled, acknowledge the near-miss and make it easy to rebook
+1. It reads like a real person sent it
+   - Not a brand voice. Not a marketing department. A person at a business.
+   - Contractions, short sentences, natural rhythm.
+   - Never start with the business name as if it's a sender tag — work it in naturally.
 
-Non-negotiable rules:
-- Each message body must be 320 characters or fewer (including the literal text "[BOOKING_LINK]")
-- Include [BOOKING_LINK] naturally in each message — it will be replaced with the real URL
-- No spam trigger words (FREE, WINNER, CLICK HERE, GUARANTEED)
-- Write personally to ${lead.name} — use their name at most once per message
-- Do not include opt-out text — that is handled automatically
-- Write in plain conversational text — no markdown, no bullet points
+2. It's specific enough to feel personal, not vague enough to feel like a blast
+   - Use the lead's name once, naturally — not as an opener formula
+   - Reference the business or service in a way that gives context: "the team at ${clientBusiness}" not just "${clientBusiness}"
+   - If you have service or date data, use it. If you don't, write around it confidently.
 
-Return ONLY a valid JSON array with exactly 4 objects. No preamble, no explanation.
+3. Every message has one job
+   - One idea. One CTA. One link. No stacking.
+   - The link should feel like the natural endpoint of the message, not bolted on at the end.
+
+4. Each message in the sequence must feel genuinely different
+   - Different angle, different opening, different emotional register if needed
+   - SMS 1: warm, personal re-entry
+   - SMS 2: slightly different benefit or framing — not just "following up"
+   - SMS 3: low pressure, acknowledge they may be busy, leave the door open
+   - SMS 4: re-engagement for near-misses or cancellations — direct, frictionless, no guilt
+
+5. Hard limits
+   - 320 characters maximum per message including [BOOKING_LINK]
+   - Include [BOOKING_LINK] naturally in each message — not as a dangling last line
+   - No spam trigger words (FREE, WINNER, CLICK HERE, GUARANTEED, ACT NOW)
+   - No ALL CAPS
+   - No excessive punctuation
+   - Do not include opt-out text — handled automatically
+   - Plain conversational text only — no markdown, no bullet points
+
+Return ONLY a valid JSON array with exactly 4 objects. Each object must have "body" only — no subject lines. No preamble, no explanation, no code blocks.
 Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
 
   const message = await client.messages.create({

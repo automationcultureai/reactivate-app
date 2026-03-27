@@ -28,7 +28,7 @@ export async function POST(
     // 2. Fetch campaign
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
-      .select('*, clients(name)')
+      .select('*, clients(name, client_industry)')
       .eq('id', campaignId)
       .single()
 
@@ -82,8 +82,9 @@ export async function POST(
     const batch = leadsToGenerate.slice(0, limit)
     const remaining = leadsToGenerate.length - batch.length
 
-    const clientName =
-      (campaign.clients as { name: string } | null)?.name ?? 'the business'
+    const clientData = campaign.clients as { name: string; client_industry: string | null } | null
+    const clientName = clientData?.name ?? 'the business'
+    const clientIndustry = clientData?.client_industry ?? null
 
     const channel = campaign.channel as 'email' | 'sms' | 'both'
     const { tone_preset, tone_custom, custom_instructions } = campaign
@@ -112,6 +113,7 @@ export async function POST(
         const seq = await generateEmailSequence(
           leadContext,
           clientName,
+          clientIndustry,
           tone_preset,
           tone_custom,
           custom_instructions
@@ -142,6 +144,7 @@ export async function POST(
         const smsList = await generateSmsSequence(
           leadContext,
           clientName,
+          clientIndustry,
           tone_preset,
           tone_custom,
           custom_instructions,

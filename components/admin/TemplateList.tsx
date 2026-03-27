@@ -35,8 +35,13 @@ const TONE_LABELS: Record<string, string> = {
   professional: 'Professional',
   friendly: 'Friendly',
   casual: 'Casual',
-  urgent: 'Urgent',
   empathetic: 'Empathetic',
+  direct: 'Direct',
+  authoritative: 'Authoritative',
+  playful: 'Playful',
+  sincere: 'Sincere',
+  nostalgic: 'Nostalgic',
+  consultative: 'Consultative',
 }
 
 interface TemplateListProps {

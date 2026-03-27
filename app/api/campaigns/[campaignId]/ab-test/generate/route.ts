@@ -14,8 +14,13 @@ const TONE_MAP: Record<string, string> = {
   professional: 'formal, respectful, business-like',
   friendly: 'warm, approachable, conversational',
   casual: 'relaxed, informal, like a friend',
-  urgent: 'time-sensitive, direct, action-focused',
   empathetic: 'understanding, caring, patient',
+  direct: 'concise, no-nonsense, gets straight to the point with no filler',
+  authoritative: 'confident, expert-led, commands trust without being pushy',
+  playful: 'lighthearted, witty, a touch of humour — never sarcastic',
+  sincere: 'genuine, heartfelt, zero sales pressure — reads like a real person',
+  nostalgic: 'leans into the past relationship, warm and sentimental reconnection',
+  consultative: 'advisory, helpful, positions the sender as a trusted expert',
 }
 
 // POST /api/campaigns/[campaignId]/ab-test/generate

@@ -34,8 +34,13 @@ const TONE_PRESETS = [
   { value: 'professional', label: 'Professional' },
   { value: 'friendly', label: 'Friendly' },
   { value: 'casual', label: 'Casual' },
-  { value: 'urgent', label: 'Urgent' },
   { value: 'empathetic', label: 'Empathetic' },
+  { value: 'direct', label: 'Direct' },
+  { value: 'authoritative', label: 'Authoritative' },
+  { value: 'playful', label: 'Playful' },
+  { value: 'sincere', label: 'Sincere' },
+  { value: 'nostalgic', label: 'Nostalgic' },
+  { value: 'consultative', label: 'Consultative' },
 ] as const
 
 interface TemplateFormDialogProps {
@@ -48,7 +53,7 @@ interface TemplateFormDialogProps {
 const DEFAULT_FORM = {
   name: '',
   channel: 'email' as 'email' | 'sms' | 'both',
-  tone_preset: 'professional' as 'professional' | 'friendly' | 'casual' | 'urgent' | 'empathetic',
+  tone_preset: 'professional' as 'professional' | 'friendly' | 'casual' | 'empathetic' | 'direct' | 'authoritative' | 'playful' | 'sincere' | 'nostalgic' | 'consultative',
   tone_custom: '',
   custom_instructions: '',
 }

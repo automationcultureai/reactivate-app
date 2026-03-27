@@ -6,7 +6,7 @@ import { getSupabaseClient } from '@/lib/supabase'
 const updateTemplateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   channel: z.enum(['email', 'sms', 'both']).optional(),
-  tone_preset: z.enum(['professional', 'friendly', 'casual', 'urgent', 'empathetic']).optional(),
+  tone_preset: z.enum(['professional', 'friendly', 'casual', 'empathetic', 'direct', 'authoritative', 'playful', 'sincere', 'nostalgic', 'consultative']).optional(),
   tone_custom: z.string().max(500).nullable().optional(),
   custom_instructions: z.string().max(2000).nullable().optional(),
 })

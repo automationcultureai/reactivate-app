@@ -23,7 +23,7 @@ const createCampaignSchema = z.object({
   client_id: z.string().uuid(),
   name: z.string().min(1, 'Campaign name is required').max(200),
   channel: z.enum(['email', 'sms', 'both']),
-  tone_preset: z.enum(['professional', 'friendly', 'casual', 'urgent', 'empathetic']),
+  tone_preset: z.enum(['professional', 'friendly', 'casual', 'empathetic', 'direct', 'authoritative', 'playful', 'sincere', 'nostalgic', 'consultative']),
   tone_custom: z.string().max(500).nullable().optional(),
   custom_instructions: z.string().max(2000).nullable().optional(),
   consent_basis: z.enum([
