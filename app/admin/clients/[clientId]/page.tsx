@@ -62,7 +62,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
       .select('id, name, status, created_at, channel')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
-    campaigns = fallback
+    campaigns = (fallback ?? []).map((c) => ({ ...c, deleted_at: null }))
   }
 
   // Count archived campaigns for the toggle
