@@ -332,6 +332,7 @@ export default async function CampaignDetailPage({ params }: Props) {
               leads={leadsWithEvents}
               campaignId={campaignId}
               campaignStatus={campaign.status}
+              channel={campaign.channel}
               clientEmail={clientData?.email}
               clientBusinessName={clientData?.business_name ?? clientData?.name}
               clientBusinessAddress={clientData?.business_address ?? undefined}

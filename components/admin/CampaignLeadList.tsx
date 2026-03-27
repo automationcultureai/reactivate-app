@@ -683,27 +683,34 @@ export function CampaignLeadList({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-0.5">
-                        {([1, 2, 3, 4] as const).map((seq) => {
-                          const emailsForSeq = (lead.emails ?? []).filter(e => e.sequence_number === seq)
-                          const sent = emailsForSeq.some(e => e.sent_at)
-                          const opened = emailsForSeq.some(e => e.opened_at)
-                          const clicked = emailsForSeq.some(e => e.clicked_at)
-                          return (
-                            <div
-                              key={seq}
-                              title={`Email ${seq}: ${clicked ? 'clicked' : opened ? 'opened' : sent ? 'sent' : 'not sent'}`}
-                              className={cn('w-2 h-2 rounded-full',
-                                clicked ? 'bg-green-500' :
-                                opened  ? 'bg-amber-500' :
-                                sent    ? 'bg-blue-500'  :
-                                'bg-muted-foreground/20'
-                              )}
-                            />
-                          )
-                        })}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{sentSeqNums.size}/4</p>
+                      {channel === 'sms' ? (() => {
+                        const sentSms = (lead.smses ?? []).filter(s => s.sent_at).length
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            {sentSms === 0 ? 'No SMS sent' : `${sentSms} of 3 SMS sent`}
+                          </p>
+                        )
+                      })() : (() => {
+                        const anyOpened = (lead.emails ?? []).some(e => e.opened_at)
+                        const anyClicked = (lead.emails ?? []).some(e => e.clicked_at)
+                        const total = channel === 'both' ? 4 : 4
+                        return (
+                          <div className="space-y-0.5">
+                            <p className="text-xs text-muted-foreground">
+                              {sentSeqNums.size === 0 ? 'No emails sent' : `${sentSeqNums.size} of ${total} emails sent`}
+                            </p>
+                            {sentSeqNums.size > 0 && (
+                              <p className={cn('text-xs font-medium',
+                                anyClicked ? 'text-green-600 dark:text-green-400' :
+                                anyOpened  ? 'text-amber-600 dark:text-amber-400' :
+                                'text-muted-foreground'
+                              )}>
+                                {anyClicked ? 'Link clicked' : anyOpened ? 'Opened' : 'Not opened'}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {!isDeleted && (
