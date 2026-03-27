@@ -1,7 +1,7 @@
 import { Zap } from 'lucide-react'
 
 export default function PrivacyPage() {
-  const agencyName = process.env.AGENCY_NAME || 'Reactivate Agency'
+  const agencyName = process.env.AGENCY_NAME || 'Automation Culture'
   const agencyAddress = process.env.AGENCY_ADDRESS || 'Melbourne, Victoria, Australia'
 
   return (
@@ -10,7 +10,7 @@ export default function PrivacyPage() {
         {/* Brand */}
         <div className="flex items-center gap-2 text-muted-foreground/50">
           <Zap className="w-4 h-4" />
-          <span className="text-sm font-medium">Reactivate</span>
+          <span className="text-sm font-medium">Automation Culture</span>
         </div>
 
         {/* Title */}

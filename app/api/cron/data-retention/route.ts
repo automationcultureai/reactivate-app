@@ -22,7 +22,7 @@ async function sendAdminNotification(count: number, skipped: number): Promise<vo
   if (!apiKey || !from || !adminEmail) return
 
   const resend = new Resend(apiKey)
-  const agencyName = process.env.AGENCY_NAME || 'Reactivate Agency'
+  const agencyName = process.env.AGENCY_NAME || 'Automation Culture'
   const retentionMonths = process.env.DATA_RETENTION_MONTHS || '12'
 
   await resend.emails.send({
