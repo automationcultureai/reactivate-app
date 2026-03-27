@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 
 interface Props {
   params: Promise<{ clientId: string }>
+  searchParams: Promise<{ archived?: string }>
 }
 
 function tierColour(tier: string) {
@@ -27,8 +28,10 @@ function tierDotClass(tier: string) {
   return 'bg-red-500'
 }
 
-export default async function ClientDetailPage({ params }: Props) {
+export default async function ClientDetailPage({ params, searchParams }: Props) {
   const { clientId } = await params
+  const { archived } = await searchParams
+  const showArchived = archived === '1'
   const supabase = getSupabaseClient()
 
   const { data: client, error } = await supabase
@@ -41,12 +44,25 @@ export default async function ClientDetailPage({ params }: Props) {
     notFound()
   }
 
-  // Campaigns for this client
-  const { data: campaigns } = await supabase
+  // Campaigns for this client (hide archived by default)
+  let campaignsQuery = supabase
     .from('campaigns')
-    .select('id, name, status, created_at, channel')
+    .select('id, name, status, created_at, channel, deleted_at')
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
+
+  if (!showArchived) {
+    campaignsQuery = campaignsQuery.is('deleted_at', null)
+  }
+
+  const { data: campaigns } = await campaignsQuery
+
+  // Count archived campaigns for the toggle
+  const { count: archivedCount } = await supabase
+    .from('campaigns')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .not('deleted_at', 'is', null)
 
   // Latest aggregate health score (campaign_id IS NULL = client aggregate)
   const { data: healthRows } = await supabase
@@ -94,14 +110,24 @@ export default async function ClientDetailPage({ params }: Props) {
         <div className="lg:col-span-2 space-y-8">
           {/* Campaigns */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-lg font-semibold text-foreground">Campaigns</h2>
-              <Link
-                href={`/admin/clients/${clientId}/campaigns/new`}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-              >
-                New campaign
-              </Link>
+              <div className="flex items-center gap-2">
+                {(archivedCount ?? 0) > 0 && (
+                  <Link
+                    href={showArchived ? `/admin/clients/${clientId}` : `/admin/clients/${clientId}?archived=1`}
+                    className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs text-muted-foreground')}
+                  >
+                    {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+                  </Link>
+                )}
+                <Link
+                  href={`/admin/clients/${clientId}/campaigns/new`}
+                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                >
+                  New campaign
+                </Link>
+              </div>
             </div>
 
             {!campaigns || campaigns.length === 0 ? (
@@ -131,7 +157,7 @@ export default async function ClientDetailPage({ params }: Props) {
                         {campaign.name}
                       </p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {campaign.channel} · {campaign.status}
+                        {campaign.channel} · {(campaign as { deleted_at?: string | null }).deleted_at ? 'archived' : campaign.status}
                       </p>
                     </div>
                     <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />

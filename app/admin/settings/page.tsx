@@ -2,7 +2,11 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, Key, Info } from 'lucide-react'
+import { Users, Key, Info, Activity } from 'lucide-react'
+import { SystemHealthCard } from '@/components/admin/SystemHealthCard'
+import { isCalendarConfigured } from '@/lib/calendar'
+import { isTwilioConfigured } from '@/lib/twilio'
+import type { HealthStatus } from '@/app/api/admin/health/route'
 
 interface ClerkUser {
   id: string
@@ -46,6 +50,13 @@ export default async function SettingsPage() {
   const adminUsers = await getAdminUsers()
   const rawIds = process.env.ADMIN_USER_IDS ?? ''
 
+  // Build initial health status server-side (no live calendar test — use "Test connections" button)
+  const initialHealth: HealthStatus = {
+    calendar: { configured: isCalendarConfigured(), working: false },
+    twilio:   { configured: isTwilioConfigured() },
+    email:    { configured: !!(process.env.RESEND_API_KEY) },
+  }
+
   return (
     <div className="space-y-8 max-w-2xl">
       {/* Header */}
@@ -53,6 +64,24 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Agency configuration and admin access</p>
       </div>
+
+      {/* System Status */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-muted-foreground" />
+            <CardTitle className="text-base">System status</CardTitle>
+          </div>
+          <CardDescription>
+            Integration status for email, SMS, and calendar. Click &ldquo;Test connections&rdquo; to verify live OAuth.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SystemHealthCard initial={initialHealth} />
+        </CardContent>
+      </Card>
+
+      <Separator />
 
       {/* Admin users */}
       <Card>

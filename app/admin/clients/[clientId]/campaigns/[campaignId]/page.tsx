@@ -186,7 +186,7 @@ export default async function CampaignDetailPage({ params }: Props) {
 
         <div className="flex items-center gap-2 flex-wrap">
           {campaign.status !== 'complete' && (
-            <CampaignEditButton campaign={campaign} />
+            <CampaignEditButton campaign={campaign} clientId={clientId} />
           )}
           {canAddLeads && (
             <AddLeadsButton
