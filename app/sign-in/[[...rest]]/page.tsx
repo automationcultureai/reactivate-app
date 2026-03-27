@@ -11,7 +11,7 @@ export default function SignInPage() {
             Automation Culture Client Portal
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            We automate the gruntwork. You take care of business.
+            Welcome, and have a great day!
           </p>
         </div>
         <SignIn />

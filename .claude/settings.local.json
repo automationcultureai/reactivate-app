@@ -135,7 +135,8 @@
       "Bash(pkill -f 'next build')",
       "Bash(npm install:*)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
-      "Bash(node node_modules/typescript/bin/tsc --noEmit)"
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(grep -l \"availability_hours\\\\|getLocalDateInfo\\\\|AvailabilityHours\" lib/calendar.ts lib/supabase.ts app/api/clients/*/route.ts)"
     ]
   }
 }
