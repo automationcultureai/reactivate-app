@@ -165,7 +165,7 @@ export default async function ClientDetailPage({ params, searchParams }: Props) 
                         {campaign.name}
                       </p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {campaign.channel} · {(campaign as { deleted_at?: string | null }).deleted_at ? 'archived' : campaign.status}
+                        {campaign.channel === 'both' ? 'Email + SMS' : campaign.channel} · {(campaign as { deleted_at?: string | null }).deleted_at ? 'archived' : campaign.status}
                       </p>
                     </div>
                     <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />

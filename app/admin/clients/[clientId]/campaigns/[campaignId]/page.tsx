@@ -180,7 +180,7 @@ export default async function CampaignDetailPage({ params }: Props) {
             </span>
           </div>
           <p className="text-sm text-muted-foreground capitalize">
-            {campaign.channel} · {campaign.tone_preset} tone · {leads} leads
+            {campaign.channel === 'both' ? 'Email + SMS' : campaign.channel} · {campaign.tone_preset} tone · {leads} leads
             {failures.length > 0 && <span className="text-destructive ml-2">· {failures.length} failed</span>}
           </p>
         </div>
@@ -257,7 +257,7 @@ export default async function CampaignDetailPage({ params }: Props) {
       {/* Metadata — compact single line */}
       <div className="flex items-center gap-x-6 gap-y-1 flex-wrap text-sm border-t border-border pt-4">
         {[
-          { label: 'Channel',       value: campaign.channel.toUpperCase() },
+          { label: 'Channel',       value: campaign.channel === 'both' ? 'Email + SMS' : campaign.channel.toUpperCase() },
           { label: 'Tone',          value: campaign.tone_preset },
           { label: 'Consent',       value: campaign.consent_basis },
           { label: 'Leads',         value: String(leads) },
