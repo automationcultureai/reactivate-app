@@ -20,7 +20,7 @@ export async function POST(
     // Fetch lead with campaign and client
     const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('*, campaigns(*, clients(name, email, business_name, business_address))')
+      .select('*, campaigns(*, clients(name, email, business_name, business_address, logo_url, brand_color))')
       .eq('id', leadId)
       .single()
 
@@ -44,6 +44,8 @@ export async function POST(
         email: string
         business_name: string | null
         business_address: string | null
+        logo_url: string | null
+        brand_color: string | null
       } | null
     } | null
 
@@ -83,6 +85,8 @@ export async function POST(
     const clientEmail = clientData?.email ?? ''
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
+    const clientLogoUrl = clientData?.logo_url ?? undefined
+    const clientBrandColor = clientData?.brand_color ?? undefined
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const bookingUrl = `${appUrl}/book/${lead.booking_token}`
     const now = new Date().toISOString()
@@ -154,6 +158,8 @@ export async function POST(
         leadToken: lead.booking_token,
         clientBusinessName,
         clientBusinessAddress,
+        clientLogoUrl,
+        clientBrandColor,
       })
 
       await supabase.from('emails').update({ sent_at: now }).eq('id', nextEmail.id)

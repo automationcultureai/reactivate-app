@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Client, AvailabilityHours, DEFAULT_AVAILABILITY } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Upload, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TIMEZONES = [
@@ -51,12 +51,39 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
   const [googleCalendarId, setGoogleCalendarId] = useState(client.google_calendar_id ?? '')
   const [businessName, setBusinessName] = useState(client.business_name ?? '')
   const [businessAddress, setBusinessAddress] = useState(client.business_address ?? '')
+  const [logoUrl, setLogoUrl] = useState(client.logo_url ?? '')
+  const [brandColor, setBrandColor] = useState(client.brand_color ?? '')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const avail = client.availability_hours ?? DEFAULT_AVAILABILITY
   const [availTimezone, setAvailTimezone] = useState(avail.timezone)
   const [availDays, setAvailDays] = useState<number[]>(avail.days)
   const [availStartHour, setAvailStartHour] = useState(String(avail.start_hour))
   const [availEndHour, setAvailEndHour] = useState(String(avail.end_hour))
   const [saving, setSaving] = useState(false)
+
+  async function handleLogoUpload(file: File) {
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(`/api/clients/${client.id}/upload-logo`, {
+        method: 'POST',
+        body: form,
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Upload failed')
+        return
+      }
+      setLogoUrl(json.url)
+      toast.success('Logo uploaded')
+    } catch {
+      toast.error('Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   function toggleDay(d: number) {
     setAvailDays((prev) =>
@@ -97,6 +124,8 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
           google_calendar_id: googleCalendarId.trim() || null,
           business_name: businessName.trim() || null,
           business_address: businessAddress.trim() || null,
+          logo_url: logoUrl.trim() || null,
+          brand_color: brandColor.trim() || null,
           availability_hours,
         }),
       })
@@ -192,6 +221,94 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
               placeholder="123 Main St, City, Postcode"
               disabled={saving}
             />
+          </div>
+
+          {/* Branding */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            <p className="text-sm font-medium text-foreground">Email branding</p>
+
+            {/* Logo */}
+            <div className="space-y-1.5">
+              <Label htmlFor="client-logo-url">Logo URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="client-logo-url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  disabled={saving || uploading}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={saving || uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleLogoUpload(file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              {logoUrl && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <img src={logoUrl} alt="Logo preview" className="h-8 max-w-[120px] object-contain rounded border border-border" />
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl('')}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Remove logo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Brand color */}
+            <div className="space-y-1.5">
+              <Label htmlFor="client-brand-color">Brand color</Label>
+              <div className="flex gap-2 items-center">
+                <input
+                  id="client-brand-color-picker"
+                  type="color"
+                  value={brandColor || '#1a1a1a'}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  disabled={saving}
+                  className="w-9 h-9 rounded border border-border cursor-pointer bg-background p-0.5"
+                />
+                <Input
+                  id="client-brand-color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  placeholder="#1a1a1a"
+                  disabled={saving}
+                  className="flex-1 font-mono"
+                  maxLength={7}
+                />
+                {brandColor && (
+                  <button
+                    type="button"
+                    onClick={() => setBrandColor('')}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Clear color"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Booking availability */}

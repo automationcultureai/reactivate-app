@@ -16,6 +16,9 @@ export interface SendEmailOptions {
   // These are shown in the footer instead of the agency env vars
   clientBusinessName?: string    // Falls back to AGENCY_NAME env var
   clientBusinessAddress?: string // Falls back to AGENCY_ADDRESS env var
+  // Branding (added by migration 0015)
+  clientLogoUrl?: string | null  // If set, shown as <img> in header; otherwise business name shown as text
+  clientBrandColor?: string | null // Hex color for header band + CTA button; falls back to AGENCY_BRAND_COLOR or #1a1a1a
 }
 
 // ============================================================
@@ -43,7 +46,9 @@ function buildHtmlEmail(
   emailId: string,
   leadToken: string,
   clientBusinessName?: string,
-  clientBusinessAddress?: string
+  clientBusinessAddress?: string,
+  clientLogoUrl?: string | null,
+  clientBrandColor?: string | null
 ): string {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
   // Client business details take priority — agency env vars are fallback only
@@ -51,12 +56,30 @@ function buildHtmlEmail(
   const agencyAddress = clientBusinessAddress ?? process.env.AGENCY_ADDRESS ?? ''
   const unsubscribeUrl = `${appUrl}/unsubscribe/${leadToken}`
   const trackingPixelUrl = `${appUrl}/api/track/open/${emailId}`
+  // Brand color: client color → agency env var → neutral dark fallback
+  const brandColor = clientBrandColor ?? process.env.AGENCY_BRAND_COLOR ?? '#1a1a1a'
 
-  // Replace [BOOKING_LINK] with a real anchor
-  const bodyWithBooking = body.replace(
-    /\[BOOKING_LINK\]/g,
-    `<a href="${bookingUrl}" style="color:#0070f3;text-decoration:underline;">${bookingUrl}</a>`
-  )
+  // Branded header: logo image if available, otherwise business name as text
+  const headerContent = clientLogoUrl
+    ? `<img src="${clientLogoUrl}" alt="${agencyName}" style="max-height:48px;max-width:200px;object-fit:contain;display:block;" />`
+    : `<span style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">${agencyName}</span>`
+
+  const header = `
+    <div style="background:${brandColor};padding:20px 24px;border-radius:8px 8px 0 0;margin:-32px -24px 28px -24px;">
+      ${headerContent}
+    </div>
+  `
+
+  // Replace [BOOKING_LINK] with a styled CTA button
+  const ctaButton = `
+    <div style="margin:28px 0;">
+      <a href="${bookingUrl}"
+        style="display:inline-block;background:${brandColor};color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.1px;">
+        Book your appointment
+      </a>
+    </div>
+  `
+  const bodyWithBooking = body.replace(/\[BOOKING_LINK\]/g, ctaButton)
 
   // Preserve newlines as HTML breaks
   const htmlBody = bodyWithBooking.replace(/\n/g, '<br>\n')
@@ -85,6 +108,7 @@ function buildHtmlEmail(
   <meta name="color-scheme" content="light">
 </head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;font-size:15px;background:#ffffff;">
+  ${header}
   <div>${htmlBody}</div>
   ${footer}
 </body>
@@ -134,6 +158,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     leadToken,
     clientBusinessName,
     clientBusinessAddress,
+    clientLogoUrl,
+    clientBrandColor,
   } = options
 
   const resend = getResend()
@@ -146,7 +172,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     subject,
     replyTo: replyTo,
     text: buildPlainText(body, bookingUrl, leadToken, clientBusinessName, clientBusinessAddress),
-    html: buildHtmlEmail(body, bookingUrl, emailId, leadToken, clientBusinessName, clientBusinessAddress),
+    html: buildHtmlEmail(body, bookingUrl, emailId, leadToken, clientBusinessName, clientBusinessAddress, clientLogoUrl, clientBrandColor),
     headers: {
       'List-Unsubscribe': `<${unsubscribeUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',

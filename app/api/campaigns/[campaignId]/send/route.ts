@@ -27,7 +27,7 @@ export async function POST(
     // 2. Fetch campaign + client (include business_name + business_address for email footer)
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
-      .select('*, clients(name, email, business_name, business_address)')
+      .select('*, clients(name, email, business_name, business_address, logo_url, brand_color)')
       .eq('id', campaignId)
       .single()
 
@@ -61,11 +61,15 @@ export async function POST(
       email: string
       business_name: string | null
       business_address: string | null
+      logo_url: string | null
+      brand_color: string | null
     } | null
     const clientEmail = clientData?.email ?? ''
     // Use client's business details for email footer — fall back to env vars if not set
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
+    const clientLogoUrl = clientData?.logo_url ?? undefined
+    const clientBrandColor = clientData?.brand_color ?? undefined
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const channel = campaign.channel as 'email' | 'sms' | 'both'
 
@@ -237,6 +241,8 @@ export async function POST(
               leadToken: lead.booking_token,
               clientBusinessName,
               clientBusinessAddress,
+              clientLogoUrl,
+              clientBrandColor,
             })
             await supabase.from('emails').update({ sent_at: now }).eq('id', email1.id)
             await supabase.from('lead_events').insert({

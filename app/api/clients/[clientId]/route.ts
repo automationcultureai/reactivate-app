@@ -18,6 +18,8 @@ const updateClientSchema = z.object({
   email: z.string().email().optional(),
   business_name: z.string().max(200).nullable().optional(),
   business_address: z.string().max(500).nullable().optional(),
+  logo_url: z.string().url().max(2000).nullable().optional(),
+  brand_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   availability_hours: availabilityHoursSchema.nullable().optional(),
 })
 
@@ -53,6 +55,8 @@ export async function PATCH(
     if (parsed.data.email !== undefined) updateData.email = parsed.data.email
     if (parsed.data.business_name !== undefined) updateData.business_name = parsed.data.business_name
     if (parsed.data.business_address !== undefined) updateData.business_address = parsed.data.business_address
+    if (parsed.data.logo_url !== undefined) updateData.logo_url = parsed.data.logo_url
+    if (parsed.data.brand_color !== undefined) updateData.brand_color = parsed.data.brand_color
     if (parsed.data.availability_hours !== undefined) updateData.availability_hours = parsed.data.availability_hours
 
     const supabase = getSupabaseClient()
