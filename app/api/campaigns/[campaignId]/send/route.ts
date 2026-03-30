@@ -6,12 +6,12 @@ import { sendSms, isTwilioConfigured } from '@/lib/twilio'
 import { pickAbVariant } from '@/lib/ab-testing'
 import { isEmailOptimalNow } from '@/lib/sydney-time'
 
-// Allow up to 300 seconds on Vercel Pro
-// Note: 30–60s delay × leads means ~5–8 emails per invocation at max duration
+// Each call processes up to `limit` leads then returns `remaining`.
+// The client loops until remaining === 0, keeping each Vercel invocation short.
 export const maxDuration = 300
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ campaignId: string }> }
 ) {
   try {
@@ -24,7 +24,11 @@ export async function POST(
     const { campaignId } = await params
     const supabase = getSupabaseClient()
 
-    // 2. Fetch campaign + client (include business_name + business_address for email footer)
+    // Per-call limit — client loops until remaining === 0
+    const url = new URL(req.url)
+    const limit = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') ?? '5', 10)), 20)
+
+    // 2. Fetch campaign + client
     const { data: campaign, error: campaignError } = await supabase
       .from('campaigns')
       .select('*, clients(name, email, business_name, business_address, logo_url, brand_color)')
@@ -35,23 +39,22 @@ export async function POST(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    // 3. Campaign must be "ready" — admin must explicitly approve before sending
-    if (campaign.status !== 'ready') {
+    // Allow 'ready' (first call) or 'active' (subsequent loop calls)
+    if (campaign.status !== 'ready' && campaign.status !== 'active') {
       return NextResponse.json(
-        { error: `Cannot send: campaign status is "${campaign.status}" — must be "ready"` },
+        { error: `Cannot send: campaign status is "${campaign.status}"` },
         { status: 400 }
       )
     }
 
-    // 3b. Time-of-day gate: Email 1 open rates peak Mon–Fri 9am–2pm AEST/AEDT.
-    // If outside that window, activate the campaign so the follow-up cron picks it up
-    // at the next optimal window — no emails sent now.
-    if (!isEmailOptimalNow()) {
+    // 3. Time-of-day gate — only on first call (status=ready)
+    if (campaign.status === 'ready' && !isEmailOptimalNow()) {
       const activatedAt = new Date().toISOString()
       await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
       return NextResponse.json({
         success: true,
         sent: 0,
+        remaining: 0,
         message: 'Outside optimal send window (Mon–Fri 9am–2pm AEST). Campaign activated — emails will be sent at the next optimal window by the follow-up cron.',
       })
     }
@@ -65,7 +68,6 @@ export async function POST(
       brand_color: string | null
     } | null
     const clientEmail = clientData?.email ?? ''
-    // Use client's business details for email footer — fall back to env vars if not set
     const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
     const clientBusinessAddress = clientData?.business_address ?? undefined
     const clientLogoUrl = clientData?.logo_url ?? undefined
@@ -73,7 +75,7 @@ export async function POST(
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const channel = campaign.channel as 'email' | 'sms' | 'both'
 
-    // 4. Count emails sent today (all campaigns) to enforce DAILY_SEND_LIMIT
+    // 4. Enforce daily send limit
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
 
@@ -87,16 +89,12 @@ export async function POST(
 
     if (remainingToday === 0) {
       return NextResponse.json(
-        {
-          error: `Daily send limit of ${dailyLimit} reached. Remaining sends will be processed tomorrow.`,
-          sent: 0,
-          queued: 0,
-        },
+        { error: `Daily send limit of ${dailyLimit} reached. Remaining sends will be processed tomorrow.`, sent: 0, remaining: 0 },
         { status: 429 }
       )
     }
 
-    // 5a. Fetch A/B test config for Email 1 (if any)
+    // 5a. Fetch A/B test config for Email 1
     const { data: abTest1 } = await supabase
       .from('campaign_ab_tests')
       .select('*')
@@ -105,13 +103,18 @@ export async function POST(
       .eq('ab_test_enabled', true)
       .maybeSingle()
 
-    // Local counters — updated after each send to avoid repeated DB round-trips
     let abASends = abTest1?.ab_variant_a_sends ?? 0
     let abBSends = abTest1?.ab_variant_b_sends ?? 0
     let abFirstSendAt: string | null = abTest1?.first_send_at ?? null
 
-    // 5b. Fetch wave 1 pending leads for the initial send.
-    // Wave 2 and wave 3 leads are sent by the follow-up cron on days 3-4 and 5-6.
+    // 5b. Count total pending wave 1 leads, fetch only `limit` for this call
+    const { count: totalPending } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId)
+      .eq('status', 'pending')
+      .eq('rfm_wave', 1)
+
     const { data: leads } = await supabase
       .from('leads')
       .select('id, name, email, phone, booking_token, send_failure_count, email_opt_out, sms_opt_out, status, rfm_wave')
@@ -119,8 +122,9 @@ export async function POST(
       .eq('status', 'pending')
       .eq('rfm_wave', 1)
       .not('status', 'in', '(deleted,unsubscribed)')
+      .limit(Math.min(limit, remainingToday))
 
-    // Count wave 2/3 leads that will be picked up by the follow-up cron
+    // Count wave 2/3 leads deferred to follow-up cron
     const { count: deferredCount } = await supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
@@ -128,32 +132,32 @@ export async function POST(
       .eq('status', 'pending')
       .in('rfm_wave', [2, 3])
 
+    // Activate campaign on first call
     const activatedAt = new Date().toISOString()
+    if (campaign.status === 'ready') {
+      await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
+    }
 
     if (!leads || leads.length === 0) {
-      await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
       const deferred = deferredCount ?? 0
       return NextResponse.json({
+        success: true,
+        sent: 0,
+        failed: 0,
+        remaining: 0,
         message: deferred > 0
           ? `No wave 1 leads — ${deferred} lead${deferred !== 1 ? 's' : ''} deferred to follow-up cron (wave 2/3)`
           : 'No pending leads — campaign set to active',
-        sent: 0,
-        queued: deferred,
       })
     }
 
-    // 6. Respect daily limit — process up to remainingToday leads
     const maxSendRetries = parseInt(process.env.MAX_SEND_RETRIES ?? '3', 10)
-    const leadsToSend = leads.slice(0, remainingToday)
-    const leadsQueued = leads.length - leadsToSend.length
-
     let sentCount = 0
     let failedCount = 0
 
-    // 7. Send Email 1 to each eligible lead
-    for (const lead of leadsToSend) {
-      // ===== CAMPAIGN SAFETY CHECKS (AI_rules.md) =====
-      // Check 1: Fetch fresh campaign status — could have been paused mid-send
+    // 6. Send to this batch
+    for (const lead of leads) {
+      // Safety check: fetch fresh campaign status in case it was paused
       const { data: freshCampaign } = await supabase
         .from('campaigns')
         .select('status')
@@ -165,29 +169,15 @@ export async function POST(
         break
       }
 
-      // Check 2: lead.email_opt_out must be false
-      if (lead.email_opt_out) {
-        console.log(`[send] Skipping lead ${lead.id} — opted out`)
-        continue
-      }
-
-      // Check 3: lead status must not be deleted or unsubscribed
-      if (lead.status === 'deleted' || lead.status === 'unsubscribed') {
-        continue
-      }
-
-      // Check 4: send_failure_count < MAX_SEND_RETRIES
-      if (lead.send_failure_count >= maxSendRetries) {
-        continue
-      }
+      if (lead.email_opt_out) continue
+      if (lead.status === 'deleted' || lead.status === 'unsubscribed') continue
+      if (lead.send_failure_count >= maxSendRetries) continue
 
       const hasEmail = channel === 'email' || channel === 'both'
       const hasSms = channel === 'sms' || channel === 'both'
 
-      // Check 5: lead must have required contact details for the channel
       if (hasEmail && !lead.email) continue
       if (hasSms && !lead.phone) continue
-      // Also check SMS opt-out for SMS-enabled campaigns
       if (hasSms && lead.sms_opt_out) continue
 
       const bookingUrl = `${appUrl}/book/${lead.booking_token}`
@@ -197,7 +187,6 @@ export async function POST(
         let emailSent = false
         let smsSent = false
 
-        // Send Email 1 (if channel includes email)
         if (hasEmail && lead.email) {
           const { data: email1 } = await supabase
             .from('emails')
@@ -211,7 +200,6 @@ export async function POST(
             let abVariant: string | null = null
 
             if (abTest1) {
-              // Use declared winner if available; otherwise randomly assign
               const winner = abTest1.ab_winner as 'A' | 'B' | 'inconclusive' | null
               abVariant = (winner === 'A' || winner === 'B') ? winner : pickAbVariant()
               subjectToSend =
@@ -220,7 +208,6 @@ export async function POST(
                   : (abTest1.subject_variant_b ?? email1.subject)
               if (!abFirstSendAt) abFirstSendAt = now
               if (abVariant === 'A') { abASends++ } else { abBSends++ }
-              // Persist variant assignment and updated counts
               await Promise.all([
                 supabase.from('emails').update({ ab_variant_assigned: abVariant }).eq('id', email1.id),
                 supabase.from('campaign_ab_tests').update({
@@ -254,8 +241,6 @@ export async function POST(
           }
         }
 
-        // Send SMS 1 (if channel includes SMS and Twilio is configured)
-        // For channel='both': skip SMS 1 here — it will be deferred to follow-up cron 48hrs after Email 1 (if unopened)
         if (hasSms && !hasEmail && lead.phone && isTwilioConfigured()) {
           const { data: sms1 } = await supabase
             .from('sms_messages')
@@ -276,7 +261,6 @@ export async function POST(
           }
         }
 
-        // Update lead status based on what was sent
         if (emailSent || smsSent) {
           const newStatus = emailSent ? 'emailed' : 'sms_sent'
           await supabase.from('leads').update({ status: newStatus }).eq('id', lead.id)
@@ -286,7 +270,6 @@ export async function POST(
         const message = err instanceof Error ? err.message : String(err)
         console.error(`[send] Failed to send Email 1 to lead ${lead.id}:`, message)
 
-        // Log failure
         await supabase.from('send_failures').insert({
           lead_id: lead.id,
           campaign_id: campaignId,
@@ -297,7 +280,6 @@ export async function POST(
           resolved: false,
         })
 
-        // Increment failure counter
         await supabase
           .from('leads')
           .update({ send_failure_count: lead.send_failure_count + 1 })
@@ -306,25 +288,19 @@ export async function POST(
         failedCount++
       }
 
-      // Randomised delay between sends — required for Gmail deliverability
-      // 30–60 seconds per AI_rules.md
-      if (sentCount + failedCount < leadsToSend.length) {
+      if (sentCount + failedCount < leads.length) {
         await sendDelay()
       }
     }
 
-    // 8. Update campaign to "active" (even with partial sends)
-    await supabase.from('campaigns').update({ status: 'active', activated_at: activatedAt }).eq('id', campaignId)
+    // remaining = total pending wave 1 minus the batch we just processed
+    const remaining = Math.max(0, (totalPending ?? 0) - leads.length)
 
     return NextResponse.json({
       success: true,
       sent: sentCount,
       failed: failedCount,
-      queued: leadsQueued,
-      message:
-        leadsQueued > 0
-          ? `${sentCount} sent, ${leadsQueued} queued for tomorrow (daily limit).`
-          : `${sentCount} sent successfully.`,
+      remaining,
     })
   } catch (err) {
     console.error('[send] Unexpected error:', err)

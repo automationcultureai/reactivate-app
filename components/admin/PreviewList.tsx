@@ -191,18 +191,36 @@ export function PreviewList({ campaignId, clientId, channel, leads, initialAbTes
 
   async function handleApproveSend() {
     setSending(true)
-    const toastId = toast.loading('Approving campaign and sending Email 1…')
+    const toastId = toast.loading('Sending Email 1…')
+    let totalSent = 0
+    let totalFailed = 0
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/send`, { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) {
-        toast.error(json.error ?? 'Send failed', { id: toastId })
-        return
+      while (true) {
+        const res = await fetch(`/api/campaigns/${campaignId}/send?limit=5`, { method: 'POST' })
+        let json: Record<string, unknown>
+        try {
+          json = await res.json()
+        } catch {
+          toast.error('Server error during send — check Vercel logs.', { id: toastId })
+          return
+        }
+        if (!res.ok) {
+          toast.error((json.error as string) ?? 'Send failed', { id: toastId })
+          return
+        }
+        totalSent += (json.sent as number) ?? 0
+        totalFailed += (json.failed as number) ?? 0
+        const remaining = (json.remaining as number) ?? 0
+        if (remaining > 0) {
+          toast.loading(`Sending… ${totalSent} sent, ${remaining} remaining`, { id: toastId })
+        } else {
+          break
+        }
       }
-      toast.success(
-        `Campaign active — ${json.sent ?? 0} email${json.sent !== 1 ? 's' : ''} sent.`,
-        { id: toastId }
-      )
+      const msg = totalFailed > 0
+        ? `Campaign active — ${totalSent} sent, ${totalFailed} failed.`
+        : `Campaign active — ${totalSent} email${totalSent !== 1 ? 's' : ''} sent.`
+      toast.success(msg, { id: toastId })
       router.push(`/admin/clients/${clientId}/campaigns/${campaignId}`)
       router.refresh()
     } catch {
