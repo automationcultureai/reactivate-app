@@ -93,8 +93,8 @@ export async function POST(
     let generatedCount = 0
     let firstErrorMessage: string | undefined
 
-    // 4. Generate sequences in parallel (up to 5 concurrent Claude calls per batch)
-    const CONCURRENCY = 5
+    // 4. Generate sequences in parallel (up to 2 concurrent Claude calls per batch)
+    const CONCURRENCY = 2
     async function processLead(lead: typeof leadsToGenerate[number]) {
       const emailInserts: object[] = []
       const smsInserts: object[] = []
