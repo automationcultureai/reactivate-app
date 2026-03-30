@@ -146,13 +146,13 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit client</DialogTitle>
           <DialogDescription>Update the client&apos;s account details.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto flex-1 pr-1">
           <div className="space-y-1.5">
             <Label htmlFor="client-name">Name</Label>
             <Input
@@ -384,7 +384,7 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>

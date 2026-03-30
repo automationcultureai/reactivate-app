@@ -42,10 +42,6 @@ export async function POST(
       return NextResponse.json({ error: 'Dispute not found' }, { status: 404 })
     }
 
-    if (dispute.status !== 'open') {
-      return NextResponse.json({ error: 'Dispute is already resolved' }, { status: 409 })
-    }
-
     // Update the dispute record
     await supabase
       .from('commission_disputes')

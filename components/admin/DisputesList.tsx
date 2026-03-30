@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import Link from 'next/link'
-import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, AlertCircle, Pencil } from 'lucide-react'
 
 interface DisputeRow {
   id: string
@@ -43,6 +43,7 @@ interface DisputesListProps {
 
 export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
   const [disputes, setDisputes] = useState(initialDisputes)
+  const [resolved, setResolved] = useState<Record<string, 'resolved' | 'rejected'>>({})
   const [target, setTarget] = useState<DisputeRow | null>(null)
   const [resolveStatus, setResolveStatus] = useState<'resolved' | 'rejected'>('rejected')
   const [adminNotes, setAdminNotes] = useState('')
@@ -73,7 +74,7 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
           ? 'Dispute resolved — commission waived'
           : 'Dispute rejected — commission stands'
       )
-      setDisputes((prev) => prev.filter((d) => d.id !== target.id))
+      setResolved((prev) => ({ ...prev, [target.id]: resolveStatus }))
       setTarget(null)
     } catch {
       toast.error('Something went wrong')
@@ -128,26 +129,49 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
                   {format(parseISO(dispute.created_at), 'dd MMM yyyy')}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-green-600 border-green-500/30 hover:bg-green-500/10"
-                      onClick={() => openDialog(dispute, 'resolved')}
-                    >
-                      <CheckCircle className="w-3 h-3 mr-1.5" />
-                      Uphold
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                      onClick={() => openDialog(dispute, 'rejected')}
-                    >
-                      <XCircle className="w-3 h-3 mr-1.5" />
-                      Reject
-                    </Button>
-                  </div>
+                  {resolved[dispute.id] ? (
+                    <div className="flex items-center gap-2">
+                      {resolved[dispute.id] === 'resolved' ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-500/10 px-2 py-0.5 rounded-full">
+                          <CheckCircle className="w-3 h-3" /> Upheld
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                          <XCircle className="w-3 h-3" /> Rejected
+                        </span>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                        onClick={() => openDialog(dispute, resolved[dispute.id]!)}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600 border-green-500/30 hover:bg-green-500/10"
+                        onClick={() => openDialog(dispute, 'resolved')}
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1.5" />
+                        Uphold
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => openDialog(dispute, 'rejected')}
+                      >
+                        <XCircle className="w-3 h-3 mr-1.5" />
+                        Reject
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -166,7 +190,7 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
                 <AlertCircle className="w-5 h-5 text-destructive" />
               )}
               <DialogTitle>
-                {resolveStatus === 'resolved' ? 'Uphold dispute' : 'Reject dispute'}
+                {target && resolved[target.id] ? 'Edit decision' : resolveStatus === 'resolved' ? 'Uphold dispute' : 'Reject dispute'}
               </DialogTitle>
             </div>
             <DialogDescription>
@@ -175,17 +199,48 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
                 : 'Commission stands. The booking reverts to completed.'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="admin-notes">Admin notes (optional)</Label>
-            <Textarea
-              id="admin-notes"
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              placeholder="Reason for this decision…"
-              rows={3}
-              disabled={saving}
-              className="resize-none"
-            />
+          <div className="space-y-3">
+            {target && resolved[target.id] && (
+              <div className="space-y-1.5">
+                <Label>Decision</Label>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant={resolveStatus === 'resolved' ? 'default' : 'outline'}
+                    className={resolveStatus !== 'resolved' ? 'text-muted-foreground' : ''}
+                    onClick={() => setResolveStatus('resolved')}
+                    disabled={saving}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Uphold
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant={resolveStatus === 'rejected' ? 'destructive' : 'outline'}
+                    className={resolveStatus !== 'rejected' ? 'text-muted-foreground' : ''}
+                    onClick={() => setResolveStatus('rejected')}
+                    disabled={saving}
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-notes">Admin notes (optional)</Label>
+              <Textarea
+                id="admin-notes"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                placeholder="Reason for this decision…"
+                rows={3}
+                disabled={saving}
+                className="resize-none"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTarget(null)} disabled={saving}>
@@ -197,7 +252,9 @@ export function DisputesList({ disputes: initialDisputes }: DisputesListProps) {
               disabled={saving}
             >
               {saving && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
-              {resolveStatus === 'resolved' ? 'Uphold & waive' : 'Reject dispute'}
+              {target && resolved[target.id]
+                ? 'Save changes'
+                : resolveStatus === 'resolved' ? 'Uphold & waive' : 'Reject dispute'}
             </Button>
           </DialogFooter>
         </DialogContent>

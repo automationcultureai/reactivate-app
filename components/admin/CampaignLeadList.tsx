@@ -219,10 +219,7 @@ export function CampaignLeadList({
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? 'Erasure failed'); return }
       toast.success('Lead data erased')
-      setLeads((prev) => prev.map((l) => l.id === eraseTarget.id
-        ? { ...l, name: 'Deleted User', email: 'deleted@deleted.com', phone: null, status: 'deleted' as Lead['status'] }
-        : l
-      ))
+      setLeads((prev) => prev.filter((l) => l.id !== eraseTarget.id))
       setEraseTarget(null)
     } catch { toast.error('Something went wrong') }
     finally { setErasing(false) }
@@ -239,10 +236,7 @@ export function CampaignLeadList({
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? 'Delete failed'); return }
       toast.success(`${json.deleted} leads deleted`)
-      setLeads((prev) => prev.map((l) => selected.has(l.id)
-        ? { ...l, name: 'Deleted User', email: 'deleted@deleted.com', phone: null, status: 'deleted' as Lead['status'] }
-        : l
-      ))
+      setLeads((prev) => prev.filter((l) => !selected.has(l.id)))
       setSelected(new Set())
       setConfirmBulkDelete(false)
     } catch { toast.error('Something went wrong') }
