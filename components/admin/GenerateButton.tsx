@@ -13,7 +13,7 @@ interface GenerateButtonProps {
   label?: string  // Custom label for "generate for new leads" use case
 }
 
-const CHUNK_SIZE = 10  // leads per API call — keeps each Vercel invocation ~50s
+const CHUNK_SIZE = 3  // leads per API call — keeps each Vercel invocation within 60s hobby timeout
 
 export function GenerateButton({ campaignId, clientId, leadCount, label }: GenerateButtonProps) {
   const router = useRouter()
