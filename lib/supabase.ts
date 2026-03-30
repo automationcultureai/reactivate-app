@@ -98,6 +98,7 @@ export type Client = {
   availability_hours: AvailabilityHours | null  // Added by migration 0013
   logo_url: string | null          // Added by migration 0015 — public URL to client logo
   brand_color: string | null       // Added by migration 0015 — hex color e.g. '#2563eb'
+  branding_enabled: boolean        // Added by migration 0016 — when false, plain text emails (no logo/color)
   created_at: string
 }
 

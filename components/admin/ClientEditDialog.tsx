@@ -14,7 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Loader2, Upload, X } from 'lucide-react'
+import { Loader2, Upload, X, Palette } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TIMEZONES = [
@@ -53,6 +53,7 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
   const [businessAddress, setBusinessAddress] = useState(client.business_address ?? '')
   const [logoUrl, setLogoUrl] = useState(client.logo_url ?? '')
   const [brandColor, setBrandColor] = useState(client.brand_color ?? '')
+  const [brandingEnabled, setBrandingEnabled] = useState(client.branding_enabled ?? true)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const avail = client.availability_hours ?? DEFAULT_AVAILABILITY
@@ -126,6 +127,7 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
           business_address: businessAddress.trim() || null,
           logo_url: logoUrl.trim() || null,
           brand_color: brandColor.trim() || null,
+          branding_enabled: brandingEnabled,
           availability_hours,
         }),
       })
@@ -225,8 +227,36 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
 
           {/* Branding */}
           <div className="space-y-3 pt-2 border-t border-border">
-            <p className="text-sm font-medium text-foreground">Email branding</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Email branding</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={brandingEnabled}
+                onClick={() => setBrandingEnabled((v) => !v)}
+                disabled={saving}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                  brandingEnabled ? 'bg-primary' : 'bg-muted'
+                )}
+              >
+                <span
+                  className={cn(
+                    'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
+                    brandingEnabled ? 'translate-x-4' : 'translate-x-0'
+                  )}
+                />
+              </button>
+            </div>
+            {!brandingEnabled && (
+              <p className="text-xs text-muted-foreground">Emails will be sent as plain text — no logo or colour header.</p>
+            )}
 
+            {brandingEnabled && (
+            <div className="space-y-3">
             {/* Logo */}
             <div className="space-y-1.5">
               <Label htmlFor="client-logo-url">Logo URL</Label>
@@ -309,6 +339,8 @@ export function ClientEditDialog({ client, open, onOpenChange, onSaved }: Client
                 )}
               </div>
             </div>
+            </div>
+            )}
           </div>
 
           {/* Booking availability */}

@@ -25,7 +25,7 @@ export async function POST(
 
     const { data: campaign } = await supabase
       .from('campaigns')
-      .select('*, clients(name, email, business_name, business_address, logo_url, brand_color)')
+      .select('*, clients(name, email, business_name, business_address, logo_url, brand_color, branding_enabled)')
       .eq('id', campaignId)
       .single()
 
@@ -85,14 +85,16 @@ export async function POST(
       business_address: string | null
       logo_url: string | null
       brand_color: string | null
+      branding_enabled: boolean
     } | null
 
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
     const clientEmail = client?.email ?? ''
     const clientBusinessName = client?.business_name ?? client?.name ?? 'the business'
     const clientBusinessAddress = client?.business_address ?? undefined
-    const clientLogoUrl = client?.logo_url ?? undefined
-    const clientBrandColor = client?.brand_color ?? undefined
+    const brandingOn = client?.branding_enabled !== false
+    const clientLogoUrl = brandingOn ? (client?.logo_url ?? undefined) : undefined
+    const clientBrandColor = brandingOn ? (client?.brand_color ?? undefined) : undefined
 
     const { data: leads, error: fetchErr } = await supabase
       .from('leads')

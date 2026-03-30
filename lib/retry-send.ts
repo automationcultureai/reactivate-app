@@ -83,7 +83,7 @@ export async function retryEmailSend(sendFailureId: string): Promise<RetrySendRe
   // 4. Fetch campaign + client for reply-to and footer details
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('status, clients(name, email, business_name, business_address, logo_url, brand_color)')
+    .select('status, clients(name, email, business_name, business_address, logo_url, brand_color, branding_enabled)')
     .eq('id', failure.campaign_id)
     .single()
 
@@ -103,13 +103,15 @@ export async function retryEmailSend(sendFailureId: string): Promise<RetrySendRe
     business_address: string | null
     logo_url: string | null
     brand_color: string | null
+    branding_enabled: boolean
   } | null
 
   const clientEmail = clientData?.email ?? ''
   const clientBusinessName = clientData?.business_name ?? clientData?.name ?? undefined
   const clientBusinessAddress = clientData?.business_address ?? undefined
-  const clientLogoUrl = clientData?.logo_url ?? undefined
-  const clientBrandColor = clientData?.brand_color ?? undefined
+  const brandingOn = clientData?.branding_enabled !== false
+  const clientLogoUrl = brandingOn ? (clientData?.logo_url ?? undefined) : undefined
+  const clientBrandColor = brandingOn ? (clientData?.brand_color ?? undefined) : undefined
   const bookingUrl = `${appUrl}/book/${lead.booking_token}`
 
   // 5. Attempt the send
