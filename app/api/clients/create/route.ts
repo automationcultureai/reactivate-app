@@ -17,6 +17,9 @@ const createClientSchema = z.object({
   business_name: z.string().max(200).nullable().optional(),
   business_address: z.string().max(500).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  branding_enabled: z.boolean().optional(),
+  logo_url: z.string().url().max(2000).nullable().optional(),
+  brand_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { name, email, commission_type, commission_value, google_calendar_id, business_name, business_address, notes } = parsed.data
+    const { name, email, commission_type, commission_value, google_calendar_id, business_name, business_address, notes, branding_enabled, logo_url, brand_color } = parsed.data
 
     // Convert to stored integer: flat → cents, percentage → basis points (e.g. 10% → 1000)
     const commission_value_stored = Math.round(parseFloat(commission_value) * 100)
@@ -70,6 +73,9 @@ export async function POST(req: NextRequest) {
         business_name: business_name ?? null,
         business_address: business_address ?? null,
         notes: notes ?? null,
+        branding_enabled: branding_enabled ?? true,
+        logo_url: logo_url ?? null,
+        brand_color: brand_color ?? null,
         clerk_org_id: clerkOrgId,
       })
       .select()

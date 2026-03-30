@@ -8,12 +8,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Palette } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { X } from 'lucide-react'
 
 export function CreateClientForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [commissionType, setCommissionType] = useState<'flat' | 'percentage'>('flat')
+  const [brandingEnabled, setBrandingEnabled] = useState(true)
+  const [logoUrl, setLogoUrl] = useState('')
+  const [brandColor, setBrandColor] = useState('')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -29,6 +34,9 @@ export function CreateClientForm() {
       business_name: (form.elements.namedItem('business_name') as HTMLInputElement).value.trim() || null,
       business_address: (form.elements.namedItem('business_address') as HTMLTextAreaElement).value.trim() || null,
       notes: (form.elements.namedItem('notes') as HTMLTextAreaElement).value.trim() || null,
+      branding_enabled: brandingEnabled,
+      logo_url: brandingEnabled && logoUrl.trim() ? logoUrl.trim() : null,
+      brand_color: brandingEnabled && brandColor.trim() ? brandColor.trim() : null,
     }
 
     try {
@@ -200,6 +208,91 @@ export function CreateClientForm() {
             </p>
           </div>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Email branding</CardTitle>
+              <CardDescription>
+                Logo and brand colour shown in email headers. Can be changed any time.
+              </CardDescription>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={brandingEnabled}
+              onClick={() => setBrandingEnabled((v) => !v)}
+              disabled={loading}
+              className={cn(
+                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                brandingEnabled ? 'bg-primary' : 'bg-muted'
+              )}
+            >
+              <span
+                className={cn(
+                  'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform',
+                  brandingEnabled ? 'translate-x-4' : 'translate-x-0'
+                )}
+              />
+            </button>
+          </div>
+        </CardHeader>
+        {brandingEnabled && (
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="logo_url">Logo URL</Label>
+              <Input
+                id="logo_url"
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="https://example.com/logo.png"
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground">
+                You can also upload a file after creating the client via the edit button.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand_color">Brand colour</Label>
+              <div className="flex gap-2 items-center">
+                <input
+                  id="brand_color_picker"
+                  type="color"
+                  value={brandColor || '#1a1a1a'}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  disabled={loading}
+                  className="w-9 h-9 rounded border border-border cursor-pointer bg-background p-0.5"
+                />
+                <Input
+                  id="brand_color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  placeholder="#1a1a1a"
+                  disabled={loading}
+                  className="flex-1 font-mono"
+                  maxLength={7}
+                />
+                {brandColor && (
+                  <button
+                    type="button"
+                    onClick={() => setBrandColor('')}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Clear colour"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        )}
+        {!brandingEnabled && (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Emails will be sent as plain text — no logo or colour header.</p>
+          </CardContent>
+        )}
       </Card>
 
       <Card>
