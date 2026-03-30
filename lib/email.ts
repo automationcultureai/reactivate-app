@@ -70,19 +70,12 @@ function buildHtmlEmail(
     </div>
   `
 
-  // Replace [BOOKING_LINK] with a styled CTA button
-  const ctaButton = `
-    <div style="margin:28px 0;">
-      <a href="${bookingUrl}"
-        style="display:inline-block;background:${brandColor};color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.1px;">
-        Book your appointment
-      </a>
-    </div>
-  `
-  const bodyWithBooking = body.replace(/\[BOOKING_LINK\]/g, ctaButton)
+  // Convert newlines to <br> first — before injecting button HTML to avoid mangling attributes
+  const bodyWithBreaks = body.replace(/\n/g, '<br>\n')
 
-  // Preserve newlines as HTML breaks
-  const htmlBody = bodyWithBooking.replace(/\n/g, '<br>\n')
+  // Replace [BOOKING_LINK] with a styled CTA button (single-line <a> to stay safe)
+  const ctaButton = `<div style="margin:28px 0;"><a href="${bookingUrl}" style="display:inline-block;background:${brandColor};color:#ffffff;font-weight:600;font-size:15px;padding:13px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.1px;">Book your appointment</a></div>`
+  const htmlBody = bodyWithBreaks.replace(/\[BOOKING_LINK\]/g, ctaButton)
 
   const footer = `
     <hr style="margin:32px 0;border:none;border-top:1px solid #e5e7eb;" />
@@ -109,7 +102,7 @@ function buildHtmlEmail(
 </head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#111827;line-height:1.65;font-size:15px;background:#ffffff;">
   ${header}
-  <div>${htmlBody}</div>
+  <div style="margin-top:24px;">${htmlBody}</div>
   ${footer}
 </body>
 </html>`
