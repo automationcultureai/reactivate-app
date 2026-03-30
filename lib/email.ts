@@ -188,7 +188,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
 // ============================================================
 
 export function sendDelay(): Promise<void> {
-  const ms = Math.floor(Math.random() * 30_000) + 30_000 // 30–60 seconds
+  const ms = 2_000 // TEST MODE — restore to: Math.floor(Math.random() * 30_000) + 30_000
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
