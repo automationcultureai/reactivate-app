@@ -196,7 +196,7 @@ Return ONLY a valid JSON object with exactly these 8 keys. Each key maps to an o
 Format: {"email1":{"subject":"...","body":"..."},"email2_unopened":{"subject":"...","body":"..."},"email2_opened":{"subject":"...","body":"..."},"email2_clicked":{"subject":"...","body":"..."},"email3_unopened":{"subject":"...","body":"..."},"email3_opened":{"subject":"...","body":"..."},"email3_clicked":{"subject":"...","body":"..."},"email4":{"subject":"...","body":"..."}}`
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 6000,
     messages: [{ role: 'user', content: prompt }],
   })
@@ -304,7 +304,7 @@ Return ONLY a valid JSON array with exactly 4 objects. Each object must have "bo
 Format: [{"body":"..."},{"body":"..."},{"body":"..."},{"body":"..."}]`
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 4096,
     messages: [{ role: 'user', content: prompt }],
   })
@@ -390,7 +390,7 @@ Return ONLY valid JSON with exactly these 2 keys, no explanation:
 {"variant_a":"...","variant_b":"..."}`
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 256,
       messages: [{ role: 'user', content: prompt }],
     })

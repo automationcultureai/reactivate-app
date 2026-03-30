@@ -12,7 +12,7 @@ AI-powered email/SMS reactivation campaigns for small business clients. Agency u
 - shadcn/ui v4 (@base-ui/react — NOT Radix)
 - Clerk v7 (multi-tenant orgs)
 - Supabase (Postgres + RLS)
-- Gmail SMTP via nodemailer
+- Resend (email sending via resend SDK)
 - Claude API (server-side only)
 - Google Calendar API (OAuth2)
 - Vercel (hosting + 6 cron jobs)
