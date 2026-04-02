@@ -87,6 +87,7 @@ export function CreateCampaignForm({ clientId, templates }: CreateCampaignFormPr
     notify_client: true,
     send_booking_confirmation: true,
     send_booking_reminder: true,
+    external_booking_url: '',
   })
 
   function applyTemplate(templateId: string) {
@@ -122,6 +123,7 @@ export function CreateCampaignForm({ clientId, templates }: CreateCampaignFormPr
         notify_client: form.notify_client,
         send_booking_confirmation: form.send_booking_confirmation,
         send_booking_reminder: form.send_booking_reminder,
+        external_booking_url: form.external_booking_url.trim() || null,
         leads: csvResult.leads,
         confirm_duplicates: confirmDuplicates,
       }
@@ -358,6 +360,33 @@ export function CreateCampaignForm({ clientId, templates }: CreateCampaignFormPr
                 />
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* Booking destination */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Booking destination</CardTitle>
+            <CardDescription>
+              Where should leads be sent when they click your campaign link?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="c-booking-url">External booking URL</Label>
+              <Input
+                id="c-booking-url"
+                type="url"
+                value={form.external_booking_url}
+                onChange={(e) => setForm((f) => ({ ...f, external_booking_url: e.target.value }))}
+                placeholder="https://book.mindbody.com/... or leave blank to use built-in booking"
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste your Mindbody, Acuity, or Vagaro booking link. Leave blank to use
+                Reactivate&apos;s built-in calendar.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

@@ -11,6 +11,11 @@ const editCampaignSchema = z.object({
   notify_client: z.boolean().optional(),
   send_booking_confirmation: z.boolean().optional(),
   send_booking_reminder: z.boolean().optional(),
+  external_booking_url: z.union([
+    z.string().url(),
+    z.literal(''),
+    z.null(),
+  ]).optional(),
   // Channel can only be changed for non-active campaigns
   channel: z.enum(['email', 'sms', 'both']).optional(),
 })

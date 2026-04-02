@@ -36,6 +36,11 @@ const createCampaignSchema = z.object({
   notify_client: z.boolean().default(true),
   send_booking_confirmation: z.boolean().default(true),
   send_booking_reminder: z.boolean().default(true),
+  external_booking_url: z.union([
+    z.string().url(),
+    z.literal(''),
+    z.null(),
+  ]).optional(),
   leads: z.array(leadSchema).min(1, 'At least 1 lead is required').max(1000),
   confirm_duplicates: z.boolean().default(false),
 })
@@ -70,6 +75,7 @@ export async function POST(req: NextRequest) {
       notify_client,
       send_booking_confirmation,
       send_booking_reminder,
+      external_booking_url,
       leads,
       confirm_duplicates,
     } = parsed.data
@@ -153,6 +159,7 @@ export async function POST(req: NextRequest) {
         notify_client,
         send_booking_confirmation,
         send_booking_reminder,
+        external_booking_url: external_booking_url ?? null,
       })
       .select()
       .single()

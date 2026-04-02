@@ -25,6 +25,7 @@ interface Campaign {
   send_booking_confirmation: boolean
   send_booking_reminder: boolean
   status: string
+  external_booking_url: string | null
 }
 
 interface CampaignEditDialogProps {
@@ -64,6 +65,7 @@ export function CampaignEditDialog({ campaign, open, onOpenChange }: CampaignEdi
     notify_client: campaign.notify_client,
     send_booking_confirmation: campaign.send_booking_confirmation,
     send_booking_reminder: campaign.send_booking_reminder,
+    external_booking_url: campaign.external_booking_url ?? '',
   })
 
   const isActive = campaign.status === 'active'
@@ -84,6 +86,7 @@ export function CampaignEditDialog({ campaign, open, onOpenChange }: CampaignEdi
         notify_client: form.notify_client,
         send_booking_confirmation: form.send_booking_confirmation,
         send_booking_reminder: form.send_booking_reminder,
+        external_booking_url: form.external_booking_url.trim() || null,
       }
       if (!isActive) payload.channel = form.channel
 
@@ -194,6 +197,23 @@ export function CampaignEditDialog({ campaign, open, onOpenChange }: CampaignEdi
               rows={3}
               className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-y"
             />
+          </div>
+
+          {/* External booking URL */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              External booking URL <span className="text-muted-foreground/60">(optional)</span>
+            </label>
+            <input
+              type="url"
+              placeholder="https://book.mindbody.com/... or leave blank for built-in booking"
+              value={form.external_booking_url}
+              onChange={(e) => set('external_booking_url', e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave blank to use Reactivate&apos;s built-in calendar.
+            </p>
           </div>
 
           {/* Toggles */}

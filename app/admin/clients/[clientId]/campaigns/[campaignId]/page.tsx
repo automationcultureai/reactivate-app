@@ -11,6 +11,7 @@ import { CampaignLeadList, LeadWithEvents } from '@/components/admin/CampaignLea
 import { CampaignAnalytics } from '@/components/admin/CampaignAnalytics'
 import { AddLeadsButton } from '@/components/admin/AddLeadsButton'
 import { CampaignEditButton } from '@/components/admin/CampaignEditButton'
+import { CampaignClickReport } from '@/components/admin/CampaignClickReport'
 import { CampaignSequenceInfo } from '@/components/admin/CampaignSequenceInfo'
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft, Zap, AlertTriangle } from 'lucide-react'
@@ -308,6 +309,26 @@ export default async function CampaignDetailPage({ params }: Props) {
           </div>
         </>
       )}
+
+      {/* Click report */}
+      <>
+        <Separator />
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">
+              Click tracking report
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Leads who clicked your campaign link.
+              Use this for reconciliation with the studio owner.
+            </p>
+          </div>
+          <CampaignClickReport
+            campaignId={campaignId}
+            externalBookingUrl={campaign.external_booking_url ?? null}
+          />
+        </div>
+      </>
 
       {/* Leads list */}
       {leadsWithEvents.length > 0 && (
